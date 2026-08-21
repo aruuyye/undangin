@@ -1,0 +1,385 @@
+<?php
+// Endpoint API
+$apiUrl = 'https://undangin.polije.ac.id/api/v1/event/3/guests';
+
+// PHP Proxy
+if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
+    header('Content-Type: application/json');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+
+    $response = false;
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $apiUrl . '?_t=' . time());
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+        $response = curl_exec($ch);
+        curl_close($ch);
+    }
+
+    if (!$response || strpos(trim($response), '<') === 0) {
+        $arrContextOptions = [
+            "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+            "http" => ["timeout" => 5, "header" => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n"]
+        ];
+        $response = @file_get_contents($apiUrl . '?_t=' . time(), false, stream_context_create($arrContextOptions));
+    }
+
+    if ($response && strpos(trim($response), '<') !== 0) {
+        echo $response;
+    } else {
+        echo json_encode(['status' => 'proxy_failed', 'message' => 'Gagal fetch dari hosting']);
+    }
+    exit;
+}
+
+$targetStaff = isset($_GET['staff']) ? strtolower(trim($_GET['staff'])) : '';
+?>
+<!DOCTYPE html>
+<html lang="id" style="--monitor-scale-x: 1; --monitor-scale-y: 1; --monitor-scale: 1; --monitor-opacity: 1;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arrival Monitor - Polije</title>
+    <link rel="icon" type="image/png" href="https://undangin.polije.ac.id/images/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; color: white; font-family: 'Plus Jakarta Sans', sans-serif; height: 100vh; width: 100vw; }
+        #visual-monitor-wrapper { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: #000; position: fixed; top: 0; left: 0; z-index: 1; }
+        #visual-monitor-backdrop { position: absolute; inset: -30px; background: radial-gradient(circle at center, #590909 0%, #1a0000 100%); z-index: 0; }
+        
+        #visual-monitor-canvas { 
+            z-index: 1; width: 1440px; height: 960px; 
+            background: radial-gradient(circle at center, #6b0f1a 0%, #2b040a 100%);
+            border: 4px solid #d4af37; 
+            box-shadow: inset 0 0 0 8px #2b040a, inset 0 0 0 10px #d4af37, 0 0 50px rgba(0,0,0,0.9);
+            position: relative; flex-shrink: 0; transform-origin: center; 
+            transform: scale(var(--monitor-scale-x, var(--monitor-scale, 0.1)), var(--monitor-scale-y, var(--monitor-scale, 0.1))); 
+            opacity: var(--monitor-opacity, 0); transition: opacity 0.3s ease; 
+            display: flex; flex-direction: column; align-items: center; padding: 35px 50px; box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .header-section { text-align: center; width: 100%; margin-bottom: 20px; flex-shrink: 0; }
+        .header-section img { height: 90px; max-width: 350px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
+        .header-section h1 { font-family: 'Playfair Display', serif; color: #e3be59; font-size: 50px; margin: 0; font-weight: 700; letter-spacing: 2px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        .divider-gold { width: 400px; height: 2px; background: linear-gradient(90deg, transparent, #e3be59, transparent); margin: 10px auto; }
+        .header-section h2 { font-family: 'Playfair Display', serif; font-size: 22px; color: #f8fafc; font-weight: 400; margin: 0; font-style: italic; }
+
+        .guest-list-container { width: 85%; display: flex; flex-direction: column; gap: 8px; flex-grow: 1; justify-content: center; }
+        
+        /* Animasi Masuk yang Elegan untuk Setiap Baris List */
+        .guest-item { 
+            display: flex; align-items: center; justify-content: space-between; 
+            background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(227, 190, 89, 0.2); 
+            border-left: 6px solid #731313; padding: 10px 24px; border-radius: 8px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); height: 50px; box-sizing: border-box;
+            animation: slideInFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transition: all 0.3s ease;
+        }
+
+        .guest-item.latest { 
+            background: rgba(227, 190, 89, 0.15); border: 1px solid rgba(227, 190, 89, 0.7); 
+            border-left: 8px solid #e3be59; transform: scale(1.01); box-shadow: 0 6px 20px rgba(227, 190, 89, 0.2);
+        }
+
+        .guest-name { font-size: 22px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%; }
+        .guest-item.latest .guest-name { color: #e3be59; font-size: 26px; font-family: 'Playfair Display', serif; letter-spacing: 1px; }
+        .guest-time { font-size: 16px; font-weight: 600; color: #cbd5e1; }
+        .guest-item.latest .guest-time { color: #e3be59; }
+        .empty-state { text-align: center; font-size: 22px; color: #cbd5e1; margin-top: 20px; font-weight: 400; font-family: 'Playfair Display', serif; font-style: italic; }
+
+        @keyframes slideInFade {
+            0% { opacity: 0; transform: translateY(-20px) scale(0.98); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="visual-monitor-wrapper">
+        <div id="visual-monitor-backdrop"></div>
+        <div id="visual-monitor-canvas" data-width="1440" data-height="960">
+            <div class="header-section">
+                <img src="https://kui.polije.ac.id/files/profile/Profile-Kantor%20Internasional%20Politeknik%20Negeri%20Jember.webp" alt="Logo Polije">
+                <h1>Selamat Datang</h1>
+                <div class="divider-gold"></div>
+                <h2>Pada Kegiatan Gladi Wisuda 49 - Politeknik Negeri Jember</h2>
+            </div>
+            <div id="guest-list" class="guest-list-container">
+                <div class="empty-state">Loading sistem monitor...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STAFF BADGE -->
+    <div style="position: fixed; top: 1.5rem; right: 1.5rem; z-index: 99998; background: rgba(0, 0, 0, 0.6); border: 1px solid #d4af37; color: #d4af37; padding: 0.6rem 1.25rem; border-radius: 99px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; backdrop-filter: blur(5px);">
+        <span style="width: 10px; height: 10px; background: #e3be59; border-radius: 50%;"></span>
+        <span id="staff-badge">STAFF: <?php echo $targetStaff ? strtoupper($targetStaff) : 'ALL'; ?></span>
+    </div>
+
+    <!-- CONNECTION STATUS INDICATOR -->
+    <div id="connection-status" style="position: fixed; bottom: 0.5rem; left: 1rem; z-index: 99998; color: #cbd5e1; font-size: 0.75rem; font-weight: 400; opacity: 0.6;">
+        Status: Menyiapkan koneksi...
+    </div>
+
+    <!-- FLOATING CONTROLS FOR TV BROWSER -->
+    <div id="fullscreen-control" style="position: fixed; bottom: 2rem; right: 2rem; z-index: 99999; opacity: 0.3; transition: 0.3s; display: flex; gap: 0.75rem; align-items: center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.3'">
+        <button onclick="toggleFitMode()" title="Ubah Ukuran Fit Layar" style="background: rgba(15, 23, 42, 0.8); border: 1px solid #d4af37; color: #d4af37; width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(8px); box-shadow: 0 10px 25px rgba(0,0,0,0.5); outline: none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-bottom: 2px;">
+                <path d="M4 14h6v6M20 10h-6V4"></path>
+            </svg>
+            <span id="fit-mode-label" style="font-size: 0.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;">FIT</span>
+        </button>
+        <button onclick="toggleFullScreen()" title="Fullscreen" style="background: rgba(15, 23, 42, 0.8); border: 1px solid #d4af37; color: #d4af37; width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); box-shadow: 0 10px 25px rgba(0,0,0,0.5); outline: none;">
+            <svg id="fs-icon-open" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+            <svg id="fs-icon-close" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display: none;"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"></path></svg>
+        </button>
+    </div>
+
+    <script>
+        const API_DIRECT = 'https://undangin.polije.ac.id/api/v1/event/3/guests';
+        const targetStaff = "<?php echo $targetStaff; ?>";
+        let lastDataHash = "";
+        let isFetching = false;
+
+        function extractGuestsArray(obj) {
+            if (Array.isArray(obj)) return obj;
+            if (obj && typeof obj === 'object') {
+                for (let key in obj) { if (Array.isArray(obj[key])) return obj[key]; }
+                for (let key in obj) {
+                    if (obj[key] && typeof obj[key] === 'object') {
+                        for (let innerKey in obj[key]) { if (Array.isArray(obj[key][innerKey])) return obj[key][innerKey]; }
+                    }
+                }
+            }
+            return null;
+        }
+
+        async function fetchGladiList() {
+            if (isFetching) return;
+            isFetching = true;
+
+            let rawJson = null;
+            let sourceMode = "";
+            let errorMessage = "";
+
+            try {
+                const currentPath = window.location.pathname;
+                const response = await fetch(`${currentPath}?ajax=1&nocache=${Date.now()}`);
+                const textRaw = await response.text();
+                
+                const cleanText = textRaw.substring(textRaw.indexOf('{') !== -1 ? textRaw.indexOf('{') : (textRaw.indexOf('[') !== -1 ? textRaw.indexOf('[') : 0));
+
+                if (cleanText.startsWith('{') || cleanText.startsWith('[')) {
+                    const parsed = JSON.parse(cleanText);
+                    if (parsed.status !== 'proxy_failed') {
+                        rawJson = parsed;
+                        sourceMode = "PHP Proxy";
+                    }
+                }
+            } catch (err) {
+                errorMessage += `Proxy: ${err.message}. `;
+            }
+
+            if (!rawJson) {
+                try {
+                    const directResponse = await fetch(`${API_DIRECT}?_t=${Date.now()}`);
+                    if (directResponse.ok) {
+                        rawJson = await directResponse.json();
+                        sourceMode = "Direct API";
+                    }
+                } catch (err) {
+                    errorMessage += `Direct: ${err.message}.`;
+                }
+            }
+
+            const statusEl = document.getElementById('connection-status');
+            const listContainer = document.getElementById('guest-list');
+
+            if (!rawJson) {
+                statusEl.innerText = "Status: Gagal Terhubung";
+                listContainer.innerHTML = `<div class="empty-state" style="color:#ef4444;">Gagal mengambil data dari API.<br><small>${errorMessage}</small></div>`;
+                isFetching = false;
+                return;
+            }
+
+            statusEl.innerText = `Status: Terhubung (${new Date().toLocaleTimeString('id-ID')})`;
+
+            let guests = extractGuestsArray(rawJson);
+
+            if (!guests) {
+                isFetching = false;
+                return;
+            }
+
+            let filteredGuests = guests.filter(guest => {
+                let innerData = guest.data;
+                if (typeof innerData === 'string') {
+                    try { innerData = JSON.parse(innerData); } catch (e) { innerData = {}; }
+                }
+                if (!innerData) innerData = {};
+
+                const scanTime = innerData.scan_gladi || guest.scan_gladi || innerData.gladi_at;
+                const hasScanGladi = (scanTime !== null && scanTime !== undefined && scanTime !== "");
+                
+                if (targetStaff !== "") {
+                    const scannedById = guest.scanned_by || innerData.scanned_by;
+                    const mappedStaffName = scannedById ? `staff${scannedById}` : "";
+                    const isMatch = mappedStaffName === targetStaff;
+                    return hasScanGladi && isMatch;
+                }
+                
+                return hasScanGladi;
+            });
+
+            filteredGuests.sort((a, b) => {
+                let innerA = typeof a.data === 'string' ? JSON.parse(a.data || '{}') : (a.data || {});
+                let innerB = typeof b.data === 'string' ? JSON.parse(b.data || '{}') : (b.data || {});
+                
+                const timeA = new Date(innerA.scan_gladi || a.scan_gladi || a.updated_at).getTime();
+                const timeB = new Date(innerB.scan_gladi || b.scan_gladi || b.updated_at).getTime();
+                return timeB - timeA;
+            });
+
+            // Batasi tepat 8 baris terbaru
+            const top8Guests = filteredGuests.slice(0, 8);
+            const currentHash = JSON.stringify(top8Guests.map(g => g.id));
+            
+            if (currentHash !== lastDataHash) {
+                lastDataHash = currentHash;
+                renderList(top8Guests);
+            }
+
+            isFetching = false;
+        }
+
+        function renderList(guests) {
+            const listContainer = document.getElementById('guest-list');
+            
+            if (guests.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="empty-state">
+                        Belum ada tamu gladi yang dipindai<br>
+                        <span style="font-size:16px; font-family:'Plus Jakarta Sans', sans-serif;">
+                            (Filter: ${targetStaff ? targetStaff.toUpperCase() : 'SEMUA STAFF'})
+                        </span>
+                    </div>`;
+                return;
+            }
+
+            let htmlContent = '';
+            guests.forEach((guest, index) => {
+                const isLatest = index === 0;
+                
+                let innerData = guest.data;
+                if (typeof innerData === 'string') {
+                    try { innerData = JSON.parse(innerData); } catch (e) { innerData = {}; }
+                }
+                if (!innerData) innerData = {};
+
+                const guestName = innerData.Nama || innerData.nama || guest.name || guest.nama || 'Tanpa Nama';
+                
+                const rawTime = innerData.scan_gladi || guest.scan_gladi || guest.updated_at;
+                let timeFormatted = '--:--';
+                
+                if (rawTime) {
+                    const d = new Date(rawTime);
+                    if (!isNaN(d.getTime())) {
+                        timeFormatted = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    }
+                }
+
+                htmlContent += `
+                    <div class="guest-item ${isLatest ? 'latest' : ''}">
+                        <div class="guest-name">${guestName}</div>
+                        <div class="guest-time">${timeFormatted}</div>
+                    </div>
+                `;
+            });
+
+            listContainer.innerHTML = htmlContent;
+        }
+
+        function toggleFitMode() {
+            const current = localStorage.getItem('monitor_fit_mode') || 'contain';
+            let next = 'contain';
+            if (current === 'contain') { next = 'stretch'; } 
+            else if (current === 'stretch') { next = 'cover'; }
+            localStorage.setItem('monitor_fit_mode', next);
+            updateFitModeLabel();
+            autoFit();
+        }
+
+        function updateFitModeLabel() {
+            const mode = localStorage.getItem('monitor_fit_mode') || 'contain';
+            const el = document.getElementById('fit-mode-label');
+            if (el) { el.innerText = mode === 'contain' ? 'FIT' : (mode === 'stretch' ? 'FILL' : 'COVER'); }
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    document.getElementById('fs-icon-open').style.display = 'none';
+                    document.getElementById('fs-icon-close').style.display = 'block';
+                }).catch(err => { alert(`Gagal Fullscreen: ${err.message}`); });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    document.getElementById('fs-icon-open').style.display = 'block';
+                    document.getElementById('fs-icon-close').style.display = 'none';
+                }
+            }
+        }
+
+        function autoFit() {
+            const canvas = document.getElementById('visual-monitor-canvas');
+            if (!canvas) return;
+            
+            const monW = 1440;
+            const monH = 960;
+            const fitMode = localStorage.getItem('monitor_fit_mode') || 'contain';
+            
+            let scaleX, scaleY;
+            if (fitMode === 'stretch') {
+                scaleX = window.innerWidth / monW;
+                scaleY = window.innerHeight / monH;
+            } else if (fitMode === 'cover') {
+                const scale = Math.max(window.innerWidth / monW, window.innerHeight / monH);
+                scaleX = scale; scaleY = scale;
+            } else {
+                const scale = Math.min((window.innerWidth * 0.98) / monW, (window.innerHeight * 0.98) / monH);
+                scaleX = scale; scaleY = scale;
+            }
+            
+            document.documentElement.style.setProperty('--monitor-scale-x', scaleX);
+            document.documentElement.style.setProperty('--monitor-scale-y', scaleY);
+            document.documentElement.style.setProperty('--monitor-scale', scaleX);
+            document.documentElement.style.setProperty('--monitor-opacity', '1');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateFitModeLabel();
+            autoFit();
+            fetchGladiList();
+            setInterval(fetchGladiList, 1500); 
+        });
+
+        window.addEventListener('resize', autoFit);
+
+        let timeout;
+        document.addEventListener('mousemove', () => {
+            const el = document.getElementById('fullscreen-control');
+            if (el) {
+                el.style.opacity = '1';
+                clearTimeout(timeout);
+                timeout = setTimeout(() => { el.style.opacity = '0.3'; }, 5000);
+            }
+        });
+    </script>
+</body>
+</html>
