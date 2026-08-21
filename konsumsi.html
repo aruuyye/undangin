@@ -170,7 +170,7 @@
                 }
                 if (!innerData) innerData = {};
 
-                const scanTime = innerData.scan_konsumsiglad || guest.scan_konsumsiglad || innerData.gladi_at;
+                const scanTime = innerData.scan_kepulangan || guest.scan_kepulangan || innerData.gladi_at;
                 const hasScanGladi = (scanTime !== null && scanTime !== undefined && scanTime !== "");
                 
                 if (targetStaff !== "") {
@@ -187,8 +187,8 @@
                 let innerA = typeof a.data === 'string' ? JSON.parse(a.data || '{}') : (a.data || {});
                 let innerB = typeof b.data === 'string' ? JSON.parse(b.data || '{}') : (b.data || {});
                 
-                const timeA = new Date(innerA.scan_konsumsiglad || a.scan_konsumsiglad || a.updated_at).getTime();
-                const timeB = new Date(innerB.scan_konsumsiglad || b.scan_konsumsiglad || b.updated_at).getTime();
+                const timeA = new Date(innerA.scan_kepulangan || a.scan_kepulangan || a.updated_at).getTime();
+                const timeB = new Date(innerB.scan_kepulangan || b.scan_kepulangan || b.updated_at).getTime();
                 return timeB - timeA;
             });
 
@@ -230,7 +230,7 @@
 
                 const guestName = innerData.Nama || innerData.nama || guest.name || guest.nama || 'Tanpa Nama';
                 
-                const rawTime = innerData.scan_konsumsiglad || guest.scan_konsumsiglad || guest.updated_at;
+                const rawTime = innerData.scan_kepulangan || guest.scan_kepulangan || guest.updated_at;
                 let timeFormatted = '--:--';
                 
                 if (rawTime) {
