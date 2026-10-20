@@ -237,14 +237,14 @@
                                         <template v-if="key === 'arrival'">
                                             <span :class="[guest.arrival ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block']">
                                                 <i :class="['fas', guest.arrival ? 'fa-check-circle' : 'fa-clock', 'mr-1']"></i>
-                                                {{ guest.arrival ? 'HADIR' : 'BELUM' }}
+                                                {{ guest.arrival ? 'SCAN' : 'BELUM' }}
                                             </span>
                                         </template>
 
                                         <template v-if="key === 'souvenir'">
                                             <span :class="[guest.souvenir ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block']">
                                                 <i :class="['fas', guest.souvenir ? 'fa-check-circle' : 'fa-clock', 'mr-1']"></i>
-                                                {{ guest.souvenir ? 'DIAMBIL' : 'BELUM' }}
+                                                {{ guest.souvenir ? 'SCAN' : 'BELUM' }}
                                             </span>
                                         </template>
                                     </td>
