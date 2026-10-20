@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Event Monitoring Center</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse-soft { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.1); } }
+        .animate-pulse-soft { animation: pulse-soft 2s infinite ease-in-out; }
+        [v-cloak] { display: none; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-white text-slate-800 min-h-screen flex flex-col font-sans overflow-x-hidden">
+    <div id="app" class="p-4 md:p-6 flex flex-col flex-1 max-w-[2000px] mx-auto w-full relative" v-cloak>
+        
+        <!-- Modal Pengaturan -->
+        <div v-if="showSettings" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-white border border-slate-200 rounded-xl w-full max-w-lg p-6 shadow-2xl">
+                <h3 class="text-xl font-bold text-slate-900 mb-4"><i class="fas fa-cog text-blue-600 mr-2"></i> Pengaturan Sistem</h3>
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">URL API Endpoint</label>
+                    <input type="url" v-model="tempConfig.apiUrl" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-slate-800 focus:border-blue-500 outline-none">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Gunakan CORS Proxy (Bila Diperlukan)</label>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="useProxy" v-model="tempConfig.useCorsProxy" class="h-4 w-4 accent-blue-600">
+                        <label for="useProxy" class="text-xs text-slate-700">Aktifkan CORS Proxy (Bypass kebijakan browser di GitHub Pages)</label>
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Interval Auto Refresh (Detik)</label>
+                    <select v-model="tempConfig.refreshRate" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-slate-800 outline-none">
+                        <option :value="3">3 Detik</option>
+                        <option :value="5">5 Detik</option>
+                        <option :value="10">10 Detik</option>
+                        <option :value="15">15 Detik</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 justify-end mt-6 pt-4 border-t border-slate-200">
+                    <button @click="resetConfig" class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-lg text-sm font-bold transition-colors">Reset</button>
+                    <button @click="showSettings = false" class="px-4 py-2 bg-slate-200 text-slate-700 hover:bg-slate-300 rounded-lg text-sm font-bold transition-colors">Batal</button>
+                    <button @click="saveConfig" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-md transition-colors"><i class="fas fa-save mr-2"></i>Simpan</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header class="bg-slate-50 border border-slate-200 rounded-xl p-4 md:p-5 mb-6 flex flex-wrap justify-between items-center gap-4 shadow-sm">
+            <div class="flex-1 min-w-[280px]">
+                <div class="flex items-center gap-3 mb-2 flex-wrap">
+                    <span class="h-3 w-3 relative flex shrink-0">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <h1 class="text-xl font-black text-slate-900 uppercase">{{ eventName }}</h1>
+                    
+                    <div class="flex items-center gap-1.5 ml-2 bg-white border border-slate-300 rounded-lg px-2 py-1 shadow-sm">
+                        <i :class="['fas text-[10px]', isUnlocked ? 'fa-lock-open text-emerald-600' : 'fa-lock text-slate-400']"></i>
+                        <input 
+                            type="password" 
+                            v-model="inputPin" 
+                            placeholder="PIN..." 
+                            maxlength="8"
+                            class="bg-transparent text-slate-800 font-mono font-bold text-xs w-14 outline-none placeholder-slate-400 tracking-widest text-center"
+                        >
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <p class="text-slate-500 text-xs font-mono truncate max-w-[250px] md:max-w-md">
+                        <i class="fas fa-network-wired text-blue-600 mr-1"></i> {{ config.apiUrl }}
+                    </p>
+                    <button v-if="isUnlocked" @click="openSettings" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-bold transition-colors shadow">
+                        <i class="fas fa-cog mr-1"></i> UBAH URL
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3 flex-wrap">
+                <button v-if="isUnlocked" @click="exportToExcel('all')" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow transition-colors">
+                    <i class="fas fa-file-excel mr-1"></i> Export Semua Data
+                </button>
+                
+                <div class="bg-white border border-slate-200 px-4 py-2 rounded-lg flex items-center gap-3 text-xs font-semibold shadow-sm">
+                    <i :class="['fas', syncing ? 'fa-sync-alt animate-spin text-blue-600' : 'fa-check-circle animate-pulse-soft text-emerald-600']"></i>
+                    <span class="text-slate-700">{{ syncing ? 'SYNCING...' : 'LIVE' }}</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Pesan Error -->
+        <div v-if="error" class="bg-red-50 border border-red-200 text-red-700 p-4 mb-6 rounded-xl flex items-center justify-between shadow-sm">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-exclamation-circle text-red-500 text-lg"></i>
+                <p class="text-sm font-medium">{{ error }}</p>
+            </div>
+            <button @click="openSettings" class="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-red-700 transition-colors">
+                Buka Pengaturan API
+            </button>
+        </div>
+
+        <!-- Kartu Statistik -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div v-for="(stat, key) in stats" :key="key" :class="['bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between shadow-sm', stat.border]">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wider font-bold text-slate-500">{{ stat.label }}</p>
+                    <p class="text-2xl font-black mt-1 font-mono text-slate-900">{{ stat.val }}</p>
+                    <p v-if="stat.subLabel" class="text-[10px] text-slate-500 mt-1 font-medium bg-white px-1.5 py-0.5 rounded border border-slate-200 inline-block shadow-sm">
+                        {{ stat.subLabel }}: <span class="text-blue-600 font-bold font-mono">{{ stat.subVal }}</span>
+                    </p>
+                </div>
+                <div class="text-2xl p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    <i :class="['fas', stat.icon, stat.iconColor]"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pengaturan Field Info Peserta -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2 mb-3 flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-table-columns text-blue-600 text-sm"></i>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Tampilan Info Peserta (Pilih Field)</h3>
+                </div>
+                <div :class="['text-[10px] px-2 py-0.5 rounded font-bold', isUnlocked ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200']">
+                    <i :class="['fas mr-1', isUnlocked ? 'fa-unlock' : 'fa-lock']"></i>
+                    {{ isUnlocked ? 'Mode Edit Terbuka' : 'Terkunci (PIN: undangin)' }}
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 items-center max-h-48 overflow-y-auto p-1">
+                <div v-if="availableFields.length === 0" class="text-xs text-slate-400 italic">
+                    Memuat data field dari JSON...
+                </div>
+                <label v-for="field in availableFields" :key="field" class="flex items-center gap-2 text-xs font-mono bg-white px-2.5 py-1 rounded-lg border border-slate-200 cursor-pointer select-none hover:border-slate-300 shadow-sm transition-colors">
+                    <input 
+                        type="checkbox" 
+                        :value="field" 
+                        v-model="visibleFields" 
+                        :disabled="!isUnlocked"
+                        class="accent-blue-600 h-3.5 w-3.5 rounded bg-slate-100 border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                    <span :class="[!isUnlocked ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700']">{{ field }}</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Tabel Data 3 Kolom: RSVP, KEDATANGAN & KONSUMSI -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+            <template v-for="(type, key) in {rsvp: 'RSVP', arrival: 'KEDATANGAN', souvenir: 'KONSUMSI'}" :key="key">
+                <div class="bg-slate-50 border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
+                    <div :class="[
+                        'px-4 py-3 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2 text-white', 
+                        key === 'rsvp' ? 'bg-indigo-700' : (key === 'arrival' ? 'bg-emerald-700' : 'bg-amber-600')
+                    ]">
+                        <div class="flex items-center gap-2">
+                            <h2 class="font-bold uppercase tracking-wider text-xs md:text-sm">{{ type }}</h2>
+                            <span class="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-mono font-semibold">
+                                {{ getList(key).length }}
+                            </span>
+                        </div>
+                        
+                        <button 
+                            @click="exportToExcel(key)" 
+                            title="Export Tabel Ini Ke Excel"
+                            class="bg-white/20 hover:bg-white/30 text-white text-[11px] px-2 py-1 rounded flex items-center gap-1 font-bold transition-colors shadow-sm"
+                        >
+                            <i class="fas fa-file-excel"></i>
+                            <span class="hidden sm:inline">Export {{ type }}</span>
+                        </button>
+                    </div>
+
+                    <div class="p-2.5 bg-white border-b border-slate-200 flex gap-2 items-center">
+                        <div class="relative flex-1">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <i class="fas fa-search text-slate-400 text-xs"></i>
+                            </span>
+                            <input 
+                                type="text" 
+                                v-model="searchQuery[key]" 
+                                @input="page[key] = 1"
+                                placeholder="Cari Nama / NIM..."
+                                class="w-full bg-slate-50 border border-slate-200 text-xs text-slate-800 pl-8 pr-3 py-1.5 rounded-lg outline-none focus:border-blue-500 transition-colors placeholder-slate-400 font-medium"
+                            >
+                            <button v-if="searchQuery[key]" @click="searchQuery[key] = ''; page[key] = 1" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">
+                                <i class="fas fa-times-circle text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto max-h-[550px] bg-white">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-100 text-slate-600 text-[11px] border-b border-slate-200 sticky top-0 z-10 select-none">
+                                <tr>
+                                    <th class="p-2.5 w-8 text-center">NO</th>
+                                    <th class="p-2.5">INFO PESERTA</th>
+                                    <th class="p-2.5 text-center">STATUS</th>
+                                    <th class="p-2.5 text-right">UPDATE</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr v-for="(guest, idx) in paginatedList(key)" :key="guest.id" class="hover:bg-slate-50 text-xs transition-colors">
+                                    <td class="p-2.5 text-center font-mono text-slate-400 text-[11px]">{{ getIdx(key, idx) }}</td>
+                                    <td class="p-2.5">
+                                        <div class="flex flex-col gap-1">
+                                            <template v-if="visibleFields.length > 0">
+                                                <div v-for="(fKey, fIdx) in visibleFields" :key="fKey" class="text-slate-700">
+                                                    <span v-if="fIdx === 0" class="font-bold text-slate-900 text-xs block mb-0.5">
+                                                        {{ getFieldValue(guest, fKey) }}
+                                                    </span>
+                                                    <span v-else class="inline-flex bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-medium mr-1 my-0.5 text-slate-600">
+                                                        <strong class="text-slate-400 font-mono mr-1">{{ fKey }}:</strong> {{ getFieldValue(guest, fKey) }}
+                                                    </span>
+                                                </div>
+                                            </template>
+                                            <template v-else>
+                                                <span class="text-slate-400 italic text-[11px]">Kolom info kosong</span>
+                                            </template>
+                                        </div>
+                                    </td>
+                                    <td class="p-2.5 text-center">
+                                        <template v-if="key === 'rsvp'">
+                                            <span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[10px] font-bold inline-block">
+                                                <i class="fas fa-calendar-check mr-1"></i> RSVP OK
+                                            </span>
+                                        </template>
+
+                                        <template v-if="key === 'arrival'">
+                                            <span :class="[guest.arrival ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block']">
+                                                <i :class="['fas', guest.arrival ? 'fa-check-circle' : 'fa-clock', 'mr-1']"></i>
+                                                {{ guest.arrival ? 'HADIR' : 'BELUM' }}
+                                            </span>
+                                        </template>
+
+                                        <template v-if="key === 'souvenir'">
+                                            <span :class="[guest.souvenir ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block']">
+                                                <i :class="['fas', guest.souvenir ? 'fa-utensils' : 'fa-clock', 'mr-1']"></i>
+                                                {{ guest.souvenir ? 'DIAMBIL' : 'BELUM' }}
+                                            </span>
+                                        </template>
+                                    </td>
+                                    <td class="p-2.5 text-right font-mono font-bold text-slate-600 text-[11px]">
+                                        {{ getFormattedTime(guest) }}
+                                    </td>
+                                </tr>
+                                <tr v-if="getList(key).length === 0">
+                                    <td colspan="4" class="p-8 text-center text-slate-400 text-xs">Tidak ada data cocok</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="bg-slate-50 border-t border-slate-200 p-2.5 flex justify-between items-center text-xs text-slate-600">
+                        <button @click="updatePage(key, -1)" :disabled="page[key] === 1" class="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 rounded shadow-sm disabled:opacity-40 transition-colors">Prev</button>
+                        <span class="font-mono font-medium text-[11px]">Hal {{ page[key] }} / {{ Math.ceil(getList(key).length / itemsPerPage) || 1 }}</span>
+                        <button @click="updatePage(key, 1)" :disabled="page[key] >= Math.ceil(getList(key).length / itemsPerPage)" class="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 rounded shadow-sm disabled:opacity-40 transition-colors">Next</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        createApp({
+            data() { 
+                return { 
+                    config: { 
+                        apiUrl: 'https://undangin.polije.ac.id/api/v1/event/3/guests', 
+                        refreshRate: 5,
+                        useCorsProxy: false 
+                    }, 
+                    tempConfig: {}, 
+                    showSettings: false, 
+                    guests: [], 
+                    eventName: 'LIVE MONITORING', 
+                    totalGuests: 0, 
+                    page: { rsvp: 1, arrival: 1, souvenir: 1 }, 
+                    itemsPerPage: 20, 
+                    syncing: false, 
+                    error: null,
+                    pollingTimer: null,
+                    inputPin: '',
+                    
+                    availableFields: [],
+                    visibleFields: ['Nama', 'Nim', 'Prodi', 'Jurusan', 'Sesi', 'Nokur'],
+                    
+                    searchQuery: { rsvp: '', arrival: '', souvenir: '' }
+                }; 
+            },
+            computed: {
+                isUnlocked() {
+                    return this.inputPin === 'undangin';
+                },
+                stats() { 
+                    const totalRsvp = this.guests.filter(g => g.rsvp === true).length;
+                    const totalHadir = this.guests.filter(g => g.arrival === true).length;
+                    const totalKonsumsi = this.guests.filter(g => g.souvenir === true).length;
+
+                    return { 
+                        total: { label: 'Total Tamu', val: this.totalGuests, subLabel: 'Total Terdaftar', subVal: this.guests.length, icon: 'fa-users', iconColor: 'text-slate-500', border: 'border-l-4 border-l-slate-400' }, 
+                        rsvp: { label: 'Konfirmasi RSVP', val: totalRsvp, icon: 'fa-calendar-check', iconColor: 'text-indigo-600', border: 'border-l-4 border-l-indigo-500' }, 
+                        arr: { label: 'Kehadiran (Arrival)', val: totalHadir, icon: 'fa-door-open', iconColor: 'text-emerald-600', border: 'border-l-4 border-l-emerald-500' }, 
+                        konsumsi: { label: 'Konsumsi (Souvenir)', val: totalKonsumsi, icon: 'fa-utensils', iconColor: 'text-amber-500', border: 'border-l-4 border-l-amber-500' }
+                    }; 
+                }
+            },
+            methods: {
+                getFieldValue(guest, fieldKey) {
+                    if (guest[fieldKey] !== undefined && guest[fieldKey] !== null) {
+                        return guest[fieldKey];
+                    }
+                    if (guest.data && guest.data[fieldKey] !== undefined && guest.data[fieldKey] !== null) {
+                        return guest.data[fieldKey];
+                    }
+                    return '-';
+                },
+
+                getFormattedTime(guest) {
+                    if (guest.updated_at) {
+                        return guest.updated_at.split(' ')[1] || guest.updated_at;
+                    }
+                    return '-';
+                },
+
+                getList(type) { 
+                    let filtered = this.guests.filter(g => {
+                        if (type === 'rsvp') return g.rsvp === true;
+                        if (type === 'arrival') return g.arrival === true;
+                        if (type === 'souvenir') return g.souvenir === true;
+                        return false;
+                    });
+                    
+                    const query = this.searchQuery[type].trim().toLowerCase();
+                    if (query) {
+                        filtered = filtered.filter(g => {
+                            const nama = String(this.getFieldValue(g, 'Nama')).toLowerCase();
+                            const nim = String(this.getFieldValue(g, 'Nim')).toLowerCase();
+                            const prodi = String(this.getFieldValue(g, 'Prodi')).toLowerCase();
+                            return nama.includes(query) || nim.includes(query) || prodi.includes(query);
+                        });
+                    }
+
+                    return filtered;
+                },
+
+                paginatedList(type) { 
+                    const list = this.getList(type); 
+                    const start = (this.page[type] - 1) * this.itemsPerPage; 
+                    return list.slice(start, start + this.itemsPerPage); 
+                },
+
+                getIdx(type, idx) { 
+                    return (this.page[type] - 1) * this.itemsPerPage + idx + 1; 
+                },
+
+                updatePage(type, val) { 
+                    const newPage = this.page[type] + val; 
+                    const maxPage = Math.ceil(this.getList(type).length / this.itemsPerPage) || 1;
+                    if (newPage > 0 && newPage <= maxPage) this.page[type] = newPage; 
+                },
+
+                openSettings() { 
+                    this.tempConfig = { ...this.config }; 
+                    this.showSettings = true; 
+                },
+
+                saveConfig() { 
+                    this.config = { ...this.tempConfig }; 
+                    localStorage.setItem('gh_monitor_config', JSON.stringify(this.config)); 
+                    this.showSettings = false; 
+                    this.fetchData(); 
+                },
+
+                resetConfig() { 
+                    this.config = { apiUrl: 'https://undangin.polije.ac.id/api/v1/event/3/guests', refreshRate: 5, useCorsProxy: false }; 
+                    localStorage.removeItem('gh_monitor_config'); 
+                    this.showSettings = false;
+                    this.fetchData(); 
+                },
+
+                extractAvailableFields(guestsArray) {
+                    if (!guestsArray || guestsArray.length === 0) return;
+                    let keysSet = new Set();
+                    guestsArray.forEach(g => {
+                        Object.keys(g).forEach(k => { if (k !== 'data' && k !== 'id') keysSet.add(k); });
+                        if (g.data) {
+                            Object.keys(g.data).forEach(k => { keysSet.add(k); });
+                        }
+                    });
+                    this.availableFields = Array.from(keysSet);
+                },
+
+                async fetchData() {
+                    if (this.pollingTimer) clearTimeout(this.pollingTimer);
+                    this.syncing = true;
+                    this.error = null;
+
+                    let requestUrl = this.config.apiUrl;
+                    if (this.config.useCorsProxy) {
+                        requestUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(this.config.apiUrl);
+                    }
+
+                    try {
+                        const res = await fetch(requestUrl);
+                        if (!res.ok) throw new Error(`HTTP ${res.status}: Gagal mengambil data`);
+                        
+                        const data = await res.json();
+                        
+                        if (data && data.guests) {
+                            this.guests = data.guests;
+                            this.totalGuests = data.total_guests || data.guests.length;
+                            
+                            this.extractAvailableFields(data.guests);
+                            
+                            if (data.event && data.event.name) {
+                                this.eventName = data.event.name;
+                            }
+                        } else {
+                            throw new Error("Format JSON API tidak sesuai");
+                        }
+                    } catch (e) { 
+                        this.error = "Koneksi Gagal: " + e.message + ". Jika terkendala CORS, aktifkan 'CORS Proxy' di Pengaturan."; 
+                    } finally {
+                        this.syncing = false; 
+                        this.pollingTimer = setTimeout(this.fetchData, this.config.refreshRate * 1000);
+                    }
+                },
+
+                exportToExcel(targetType) {
+                    let dataset = targetType === 'all' ? [...this.guests] : this.getList(targetType);
+                    if (dataset.length === 0) {
+                        alert("Tidak ada data untuk diexport!");
+                        return;
+                    }
+
+                    let tableHTML = `<table border="1"><thead><tr><th>ID</th><th>NIM</th><th>Nama Peserta</th><th>Prodi</th><th>Jurusan</th><th>RSVP</th><th>Kedatangan</th><th>Konsumsi</th><th>Updated At</th></tr></thead><tbody>`;
+                    dataset.forEach(g => {
+                        tableHTML += `<tr>
+                            <td>${g.id}</td>
+                            <td>${g.data?.Nim || '-'}</td>
+                            <td>${g.data?.Nama || '-'}</td>
+                            <td>${g.data?.Prodi || '-'}</td>
+                            <td>${g.data?.Jurusan || '-'}</td>
+                            <td>${g.rsvp ? 'Ya' : 'Tidak'}</td>
+                            <td>${g.arrival ? 'Hadir' : 'Belum'}</td>
+                            <td>${g.souvenir ? 'Sudah' : 'Belum'}</td>
+                            <td>${g.updated_at || '-'}</td>
+                        </tr>`;
+                    });
+                    tableHTML += '</tbody></table>';
+
+                    const blob = new Blob(['\ufeff' + tableHTML], { type: 'application/vnd.ms-excel' });
+                    const downloadLink = document.createElement("a");
+                    downloadLink.href = URL.createObjectURL(blob);
+                    downloadLink.download = `Export_${targetType.toUpperCase()}_${new Date().toISOString().slice(0,10)}.xls`;
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+                }
+            },
+            mounted() {
+                const conf = localStorage.getItem('gh_monitor_config'); 
+                if (conf) this.config = JSON.parse(conf);
+                this.fetchData();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
