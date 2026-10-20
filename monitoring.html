@@ -274,7 +274,7 @@
             data() { 
                 return { 
                     config: { 
-                        apiUrl: 'https://undangin.polije.ac.id/api/v1/event/3/guests', 
+                        apiUrl: 'https://undangin.polije.ac.id/api/v1/event/12/guests', 
                         refreshRate: 5,
                         useCorsProxy: false 
                     }, 
@@ -381,7 +381,7 @@
                 },
 
                 resetConfig() { 
-                    this.config = { apiUrl: 'https://undangin.polije.ac.id/api/v1/event/3/guests', refreshRate: 5, useCorsProxy: false }; 
+                    this.config = { apiUrl: 'https://undangin.polije.ac.id/api/v1/event/12/guests', refreshRate: 5, useCorsProxy: false }; 
                     localStorage.removeItem('gh_monitor_config'); 
                     this.showSettings = false;
                     this.fetchData(); 
