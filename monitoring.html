@@ -243,7 +243,7 @@
 
                                         <template v-if="key === 'souvenir'">
                                             <span :class="[guest.souvenir ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block']">
-                                                <i :class="['fas', guest.souvenir ? 'fa-utensils' : 'fa-clock', 'mr-1']"></i>
+                                                <i :class="['fas', guest.souvenir ? 'fa-check-circle' : 'fa-clock', 'mr-1']"></i>
                                                 {{ guest.souvenir ? 'DIAMBIL' : 'BELUM' }}
                                             </span>
                                         </template>
@@ -308,8 +308,8 @@
                     return { 
                         total: { label: 'Total Tamu', val: this.totalGuests, subLabel: 'Total Terdaftar', subVal: this.guests.length, icon: 'fa-users', iconColor: 'text-slate-500', border: 'border-l-4 border-l-slate-400' }, 
                         rsvp: { label: 'Konfirmasi RSVP', val: totalRsvp, icon: 'fa-calendar-check', iconColor: 'text-indigo-600', border: 'border-l-4 border-l-indigo-500' }, 
-                        arr: { label: 'Kehadiran (Arrival)', val: totalHadir, icon: 'fa-door-open', iconColor: 'text-emerald-600', border: 'border-l-4 border-l-emerald-500' }, 
-                        konsumsi: { label: 'Konsumsi (Souvenir)', val: totalKonsumsi, icon: 'fa-utensils', iconColor: 'text-amber-500', border: 'border-l-4 border-l-amber-500' }
+                        arr: { label: 'Gladi', val: totalHadir, icon: 'fa-door-open', iconColor: 'text-emerald-600', border: 'border-l-4 border-l-emerald-500' }, 
+                        konsumsi: { label: 'Kedatangan', val: totalKonsumsi, icon: 'fa-utensils', iconColor: 'text-amber-500', border: 'border-l-4 border-l-amber-500' }
                     }; 
                 }
             },
