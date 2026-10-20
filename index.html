@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arrival Monitor - Kedatangan Polije</title>
+    <title>Arrival Monitor - Polije</title>
     <link rel="icon" type="image/png" href="https://undangin.polije.ac.id/images/favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -64,7 +64,7 @@
         <div id="visual-monitor-canvas" data-width="1440" data-height="960">
             <div class="header-section">
                 <img src="https://kui.polije.ac.id/files/profile/Profile-Kantor%20Internasional%20Politeknik%20Negeri%20Jember.webp" alt="Logo Polije">
-                <h1>Kedatangan Wisudawan</h1>
+                <h1>Pengambilan Konsumsi</h1>
                 <div class="divider-gold"></div>
                 <h2>Wisuda Ke-50 Politeknik Negeri Jember</h2>
             </div>
@@ -94,7 +94,7 @@
             <span id="fit-mode-label" style="font-size: 0.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;">FIT</span>
         </button>
         <button onclick="toggleFullScreen()" title="Fullscreen" style="background: rgba(15, 23, 42, 0.85); border: 1px solid #38bdf8; color: #38bdf8; width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); box-shadow: 0 10px 25px rgba(0,0,0,0.5); outline: none;">
-            <svg id="fs-icon-open" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+            <svg id="fs-icon-open" width="28" height="28" viewBox="00 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
             <svg id="fs-icon-close" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display: none;"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"></path></svg>
         </button>
     </div>
@@ -125,7 +125,7 @@
             return null;
         }
 
-        async function fetchKedatanganList() {
+        async function fetchGladiList() {
             if (isFetching) return;
             isFetching = true;
 
@@ -169,25 +169,25 @@
                 }
                 if (!innerData) innerData = {};
 
-                const scanTime = innerData.scan_kedatangan || guest.scan_kedatangan;
-                const hasScan = (scanTime !== null && scanTime !== undefined && scanTime !== "");
+                const scanTime = innerData.scan_kepulangan || guest.scan_kepulangan || innerData.gladi_at;
+                const hasScanGladi = (scanTime !== null && scanTime !== undefined && scanTime !== "");
                 
                 if (targetStaff !== "") {
                     const scannedById = guest.scanned_by || innerData.scanned_by;
                     const mappedStaffName = scannedById ? `staff${scannedById}` : "";
                     const isMatch = mappedStaffName === targetStaff;
-                    return hasScan && isMatch;
+                    return hasScanGladi && isMatch;
                 }
                 
-                return hasScan;
+                return hasScanGladi;
             });
 
             filteredGuests.sort((a, b) => {
                 let innerA = typeof a.data === 'string' ? JSON.parse(a.data || '{}') : (a.data || {});
                 let innerB = typeof b.data === 'string' ? JSON.parse(b.data || '{}') : (b.data || {});
                 
-                const timeA = new Date(innerA.scan_kedatangan || a.scan_kedatangan || a.updated_at).getTime();
-                const timeB = new Date(innerB.scan_kedatangan || b.scan_kedatangan || b.updated_at).getTime();
+                const timeA = new Date(innerA.scan_kepulangan || a.scan_kepulangan || a.updated_at).getTime();
+                const timeB = new Date(innerB.scan_kepulangan || b.scan_kepulangan || b.updated_at).getTime();
                 return timeB - timeA;
             });
 
@@ -228,7 +228,7 @@
 
                 const guestName = innerData.Nama || innerData.nama || guest.name || guest.nama || 'Tanpa Nama';
                 
-                const rawTime = innerData.scan_kedatangan || guest.scan_kedatangan || guest.updated_at;
+                const rawTime = innerData.scan_kepulangan || guest.scan_kepulangan || guest.updated_at;
                 let timeFormatted = '--:--';
                 
                 if (rawTime) {
@@ -309,8 +309,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             updateFitModeLabel();
             autoFit();
-            fetchKedatanganList();
-            setInterval(fetchKedatanganList, 1500); 
+            fetchGladiList();
+            setInterval(fetchGladiList, 1500); 
         });
 
         window.addEventListener('resize', autoFit);
