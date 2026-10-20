@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arrival Monitor - Gladi Polije</title>
+    <title>Arrival Monitor - Kedatangan Polije</title>
     <link rel="icon" type="image/png" href="https://undangin.polije.ac.id/images/favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -64,7 +64,7 @@
         <div id="visual-monitor-canvas" data-width="1440" data-height="960">
             <div class="header-section">
                 <img src="https://kui.polije.ac.id/files/profile/Profile-Kantor%20Internasional%20Politeknik%20Negeri%20Jember.webp" alt="Logo Polije">
-                <h1>Presensi Gladi</h1>
+                <h1>Kedatangan Wisudawan</h1>
                 <div class="divider-gold"></div>
                 <h2>Wisuda Ke-50 Politeknik Negeri Jember</h2>
             </div>
@@ -125,7 +125,7 @@
             return null;
         }
 
-        async function fetchGladiList() {
+        async function fetchKedatanganList() {
             if (isFetching) return;
             isFetching = true;
 
@@ -169,25 +169,25 @@
                 }
                 if (!innerData) innerData = {};
 
-                const scanTime = innerData.gladi_at || innerData.scan_gladi || guest.gladi_at;
-                const hasScanGladi = (scanTime !== null && scanTime !== undefined && scanTime !== "");
+                const scanTime = innerData.scan_kedatangan || guest.scan_kedatangan;
+                const hasScan = (scanTime !== null && scanTime !== undefined && scanTime !== "");
                 
                 if (targetStaff !== "") {
                     const scannedById = guest.scanned_by || innerData.scanned_by;
                     const mappedStaffName = scannedById ? `staff${scannedById}` : "";
                     const isMatch = mappedStaffName === targetStaff;
-                    return hasScanGladi && isMatch;
+                    return hasScan && isMatch;
                 }
                 
-                return hasScanGladi;
+                return hasScan;
             });
 
             filteredGuests.sort((a, b) => {
                 let innerA = typeof a.data === 'string' ? JSON.parse(a.data || '{}') : (a.data || {});
                 let innerB = typeof b.data === 'string' ? JSON.parse(b.data || '{}') : (b.data || {});
                 
-                const timeA = new Date(innerA.gladi_at || innerA.scan_gladi || a.gladi_at || a.updated_at).getTime();
-                const timeB = new Date(innerB.gladi_at || innerB.scan_gladi || b.gladi_at || b.updated_at).getTime();
+                const timeA = new Date(innerA.scan_kedatangan || a.scan_kedatangan || a.updated_at).getTime();
+                const timeB = new Date(innerB.scan_kedatangan || b.scan_kedatangan || b.updated_at).getTime();
                 return timeB - timeA;
             });
 
@@ -208,7 +208,7 @@
             if (guests.length === 0) {
                 listContainer.innerHTML = `
                     <div class="empty-state">
-                        Belum ada peserta gladi yang dipindai<br>
+                        Belum ada kedatangan yang dipindai<br>
                         <span style="font-size:16px; font-family:'Plus Jakarta Sans', sans-serif;">
                             (Filter: ${targetStaff ? targetStaff.toUpperCase() : 'SEMUA STAFF'})
                         </span>
@@ -228,7 +228,7 @@
 
                 const guestName = innerData.Nama || innerData.nama || guest.name || guest.nama || 'Tanpa Nama';
                 
-                const rawTime = innerData.gladi_at || innerData.scan_gladi || guest.gladi_at || guest.updated_at;
+                const rawTime = innerData.scan_kedatangan || guest.scan_kedatangan || guest.updated_at;
                 let timeFormatted = '--:--';
                 
                 if (rawTime) {
@@ -309,8 +309,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             updateFitModeLabel();
             autoFit();
-            fetchGladiList();
-            setInterval(fetchGladiList, 1500); 
+            fetchKedatanganList();
+            setInterval(fetchKedatanganList, 1500); 
         });
 
         window.addEventListener('resize', autoFit);
