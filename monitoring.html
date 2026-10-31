@@ -349,6 +349,13 @@
                         });
                     }
 
+                    // Logika Sorting: Waktu paling baru (updated_at terbesar) berada di atas
+                    filtered.sort((a, b) => {
+                        const dateA = new Date(a.updated_at || 0).getTime();
+                        const dateB = new Date(b.updated_at || 0).getTime();
+                        return dateB - dateA; // Descending order
+                    });
+
                     return filtered;
                 },
 
