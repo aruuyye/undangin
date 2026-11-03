@@ -89,7 +89,7 @@
                 <!-- Indikator Filter Jurusan Aktif -->
                 <div v-if="selectedJurusanFilter" class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm">
                     <span><i class="fas fa-filter mr-1"></i> Filter Jurusan: <strong>{{ selectedJurusanFilter }}</strong></span>
-                    <button @click="clearJurusanFilter" class="hover:text-blue-900 ml-1"><i class="fas fa-times-circle"></i></button>
+                    <button @click="clearJurusanFilter" class="hover:text-blue-900 ml-1" title="Hapus Filter Jurusan"><i class="fas fa-times-circle"></i></button>
                 </div>
 
                 <button v-if="isUnlocked" @click="exportToExcel('all')" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow transition-colors">
@@ -130,46 +130,8 @@
             </div>
         </div>
 
-        <!-- Tabel Kecil Rekapitulasi Berdasarkan Jurusan (Dihitung dari RSVP) -->
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
-            <div class="flex items-center justify-between border-b border-slate-200 pb-2 mb-3 flex-wrap gap-2">
-                <div class="flex items-center gap-2">
-                    <i class="fas fa-chart-pie text-blue-600 text-sm"></i>
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Rekapitulasi RSVP Per Jurusan</h3>
-                </div>
-                <span class="text-[10px] text-slate-400 italic">Klik nama jurusan untuk memfilter tabel atau gunakan parameter URL ?jurusan=NAMA_JURUSAN</span>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-100 text-slate-600 text-[11px] border-b border-slate-200">
-                            <th class="p-2.5">JURUSAN</th>
-                            <th class="p-2.5 text-center">TOTAL RSVP</th>
-                            <th class="p-2.5 text-center text-emerald-700">HADIR (RSVP & SCAN)</th>
-                            <th class="p-2.5 text-center text-amber-600">BELUM HADIR (RSVP Saja)</th>
-                            <th class="p-2.5 text-center text-red-600">TIDAK HADIR (Non-RSVP)</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 text-xs">
-                        <tr v-for="j in jurusanSummary" :key="j.name" @click="filterByJurusan(j.name)" class="hover:bg-blue-50/50 cursor-pointer transition-colors">
-                            <td class="p-2.5 font-bold text-blue-600 hover:underline flex items-center gap-1.5">
-                                <i class="fas fa-graduation-cap text-[10px]"></i> {{ j.name }}
-                            </td>
-                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.totalRsvp }}</td>
-                            <td class="p-2.5 text-center font-mono text-emerald-700 font-bold bg-emerald-50/30">{{ j.hadir }}</td>
-                            <td class="p-2.5 text-center font-mono text-amber-600 font-bold bg-amber-50/30">{{ j.belum }}</td>
-                            <td class="p-2.5 text-center font-mono text-red-600 font-bold bg-red-50/30">{{ j.tidakHadir }}</td>
-                        </tr>
-                        <tr v-if="jurusanSummary.length === 0">
-                            <td colspan="5" class="p-4 text-center text-slate-400 italic">Belum ada data jurusan</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
         <!-- Pengaturan Field Info Peserta (Collapse Default Hidden) -->
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 shadow-sm">
             <div class="flex items-center justify-between cursor-pointer select-none" @click="showFieldConfig = !showFieldConfig">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-table-columns text-blue-600 text-sm"></i>
@@ -201,18 +163,88 @@
             </div>
         </div>
 
-        <!-- Tabel Data 3 Kolom: RSVP, KEDATANGAN & KONSUMSI -->
+        <!-- Tabel Kecil Rekapitulasi Per Jurusan (Collapse Default Hidden) -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
+            <div class="flex items-center justify-between cursor-pointer select-none" @click="showJurusanTable = !showJurusanTable">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-chart-bar text-blue-600 text-sm"></i>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Rekapitulasi Data Per Jurusan</h3>
+                    <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-mono font-bold">
+                        {{ jurusanSummary.length }} Jurusan
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-400 italic hidden sm:inline">Klik untuk buka/tutup atau pilih jurusan untuk filter</span>
+                    <i :class="['fas text-slate-400 transition-transform duration-200', showJurusanTable ? 'fa-chevron-up' : 'fa-chevron-down']"></i>
+                </div>
+            </div>
+
+            <div v-if="showJurusanTable" class="mt-3 pt-3 border-t border-slate-200 overflow-x-auto">
+                <div class="flex justify-between items-center mb-2 text-[11px] text-slate-500">
+                    <span>Klik pada baris jurusan untuk memfilter tabel di bawah, atau tambahkan <code>?jurusan=NAMA_JURUSAN</code> pada URL.</span>
+                    <button v-if="selectedJurusanFilter" @click="clearJurusanFilter" class="text-red-600 hover:underline font-bold">
+                        <i class="fas fa-sync-alt mr-1"></i> Tampilkan Semua Jurusan
+                    </button>
+                </div>
+                <table class="w-full text-left border-collapse bg-white rounded-lg overflow-hidden border border-slate-200">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 text-[11px] border-b border-slate-200">
+                            <th class="p-2.5">JURUSAN</th>
+                            <th class="p-2.5 text-center">TOTAL TAMU</th>
+                            <th class="p-2.5 text-center text-indigo-700">TOTAL KONFIRMASI RSVP</th>
+                            <th class="p-2.5 text-center text-emerald-700">TOTAL GLADI</th>
+                            <th class="p-2.5 text-center text-amber-600">TOTAL KEDATANGAN</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        <tr 
+                            v-for="j in jurusanSummary" 
+                            :key="j.name" 
+                            @click="filterByJurusan(j.name)" 
+                            :class="[
+                                'cursor-pointer transition-colors',
+                                selectedJurusanFilter.toLowerCase() === j.name.toLowerCase() ? 'bg-blue-50/80 font-bold' : 'hover:bg-slate-50'
+                            ]"
+                        >
+                            <td class="p-2.5 font-bold text-blue-600 hover:underline flex items-center gap-1.5">
+                                <i class="fas fa-graduation-cap text-[10px]"></i> {{ j.name }}
+                                <span v-if="selectedJurusanFilter.toLowerCase() === j.name.toLowerCase()" class="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded ml-1">Aktif</span>
+                            </td>
+                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.totalTamu }}</td>
+                            <td class="p-2.5 text-center font-mono text-indigo-700 font-bold bg-indigo-50/30">{{ j.totalRsvp }}</td>
+                            <td class="p-2.5 text-center font-mono text-emerald-700 font-bold bg-emerald-50/30">{{ j.totalGladi }}</td>
+                            <td class="p-2.5 text-center font-mono text-amber-600 font-bold bg-amber-50/30">{{ j.totalKedatangan }}</td>
+                        </tr>
+                        <tr v-if="jurusanSummary.length === 0">
+                            <td colspan="5" class="p-4 text-center text-slate-400 italic">Belum ada data jurusan</td>
+                        </tr>
+                    </tbody>
+                    <tfoot v-if="jurusanSummary.length > 0" class="bg-slate-100 font-bold text-xs border-t border-slate-200">
+                        <tr>
+                            <td class="p-2.5 text-slate-700">TOTAL KESELURUHAN</td>
+                            <td class="p-2.5 text-center font-mono text-slate-900">{{ guests.length }}</td>
+                            <td class="p-2.5 text-center font-mono text-indigo-700">{{ guests.filter(g => g.rsvp === true).length }}</td>
+                            <td class="p-2.5 text-center font-mono text-emerald-700">{{ guests.filter(g => g.arrival === true).length }}</td>
+                            <td class="p-2.5 text-center font-mono text-amber-600">{{ guests.filter(g => g.souvenir === true).length }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tabel Data 3 Kolom: RSVP, GLADI & KEDATANGAN -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
             <template v-for="(type, key) in {rsvp: 'RSVP', arrival: 'GLADI', souvenir: 'KEDATANGAN'}" :key="key">
                 <div class="bg-slate-50 border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
+                    <!-- Header Kolom -->
                     <div :class="[
                         'px-4 py-3 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2 text-white', 
                         key === 'rsvp' ? 'bg-indigo-700' : (key === 'arrival' ? 'bg-emerald-700' : 'bg-amber-600')
                     ]">
                         <div class="flex items-center gap-2">
                             <h2 class="font-bold uppercase tracking-wider text-xs md:text-sm">{{ type }}</h2>
-                            <span class="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-mono font-semibold">
-                                {{ getList(key).length }}
+                            <span class="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-mono font-semibold" title="Sudah / Total">
+                                {{ getCountByStatus(key, true) }} / {{ getBaseFilteredGuests().length }}
                             </span>
                         </div>
                         
@@ -226,6 +258,47 @@
                         </button>
                     </div>
 
+                    <!-- Tab Filter Status (Semua, Sudah, Belum) -->
+                    <div class="px-2.5 pt-2.5 bg-white flex gap-1.5 border-b border-slate-100 pb-2 text-[11px] font-bold">
+                        <button 
+                            @click="statusFilter[key] = 'all'; page[key] = 1" 
+                            :class="[
+                                'flex-1 py-1.5 px-2 rounded-lg border transition-colors flex items-center justify-center gap-1',
+                                statusFilter[key] === 'all' 
+                                    ? 'bg-slate-800 text-white border-slate-800 shadow-sm' 
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                            ]"
+                        >
+                            <span>Semua</span>
+                            <span class="text-[10px] font-mono opacity-80">({{ getBaseFilteredGuests().length }})</span>
+                        </button>
+                        <button 
+                            @click="statusFilter[key] = 'done'; page[key] = 1" 
+                            :class="[
+                                'flex-1 py-1.5 px-2 rounded-lg border transition-colors flex items-center justify-center gap-1',
+                                statusFilter[key] === 'done' 
+                                    ? (key === 'rsvp' ? 'bg-indigo-600 text-white border-indigo-600' : (key === 'arrival' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-amber-600 text-white border-amber-600'))
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                            ]"
+                        >
+                            <span>{{ key === 'rsvp' ? 'Sudah RSVP' : 'Sudah Scan' }}</span>
+                            <span class="text-[10px] font-mono opacity-90">({{ getCountByStatus(key, true) }})</span>
+                        </button>
+                        <button 
+                            @click="statusFilter[key] = 'pending'; page[key] = 1" 
+                            :class="[
+                                'flex-1 py-1.5 px-2 rounded-lg border transition-colors flex items-center justify-center gap-1',
+                                statusFilter[key] === 'pending' 
+                                    ? 'bg-red-600 text-white border-red-600 shadow-sm' 
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                            ]"
+                        >
+                            <span>{{ key === 'rsvp' ? 'Belum RSVP' : 'Belum Scan' }}</span>
+                            <span class="text-[10px] font-mono opacity-90">({{ getCountByStatus(key, false) }})</span>
+                        </button>
+                    </div>
+
+                    <!-- Input Pencarian -->
                     <div class="p-2.5 bg-white border-b border-slate-200 flex gap-2 items-center">
                         <div class="relative flex-1">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -235,7 +308,7 @@
                                 type="text" 
                                 v-model="searchQuery[key]" 
                                 @input="page[key] = 1"
-                                placeholder="Cari Nama / NIM..."
+                                placeholder="Cari Nama / NIM / Prodi..."
                                 class="w-full bg-slate-50 border border-slate-200 text-xs text-slate-800 pl-8 pr-3 py-1.5 rounded-lg outline-none focus:border-blue-500 transition-colors placeholder-slate-400 font-medium"
                             >
                             <button v-if="searchQuery[key]" @click="searchQuery[key] = ''; page[key] = 1" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">
@@ -244,6 +317,7 @@
                         </div>
                     </div>
 
+                    <!-- Tabel Daftar Peserta -->
                     <div class="flex-1 overflow-y-auto max-h-[550px] bg-white">
                         <table class="w-full text-left">
                             <thead class="bg-slate-100 text-slate-600 text-[11px] border-b border-slate-200 sticky top-0 z-10 select-none">
@@ -275,23 +349,27 @@
                                         </div>
                                     </td>
                                     <td class="p-2.5 text-center">
+                                        <!-- Status Badge RSVP -->
                                         <template v-if="key === 'rsvp'">
-                                            <span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[10px] font-bold inline-block">
-                                                <i class="fas fa-calendar-check mr-1"></i> RSVP OK
+                                            <span :class="[guest.rsvp ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-red-50 text-red-600 border-red-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block whitespace-nowrap']">
+                                                <i :class="['fas', guest.rsvp ? 'fa-calendar-check' : 'fa-times-circle', 'mr-1']"></i>
+                                                {{ guest.rsvp ? 'RSVP OK' : 'BELUM RSVP' }}
                                             </span>
                                         </template>
 
+                                        <!-- Status Badge GLADI -->
                                         <template v-if="key === 'arrival'">
-                                            <span :class="[guest.arrival ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block']">
+                                            <span :class="[guest.arrival ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block whitespace-nowrap']">
                                                 <i :class="['fas', guest.arrival ? 'fa-check-circle' : 'fa-clock', 'mr-1']"></i>
-                                                {{ guest.arrival ? 'SCAN' : 'BELUM' }}
+                                                {{ guest.arrival ? 'SUDAH SCAN' : 'BELUM SCAN' }}
                                             </span>
                                         </template>
 
+                                        <!-- Status Badge KEDATANGAN -->
                                         <template v-if="key === 'souvenir'">
-                                            <span :class="[guest.souvenir ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-500 border-slate-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block']">
+                                            <span :class="[guest.souvenir ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-600 border-red-200', 'px-1.5 py-0.5 rounded border text-[10px] font-bold inline-block whitespace-nowrap']">
                                                 <i :class="['fas', guest.souvenir ? 'fa-check-circle' : 'fa-clock', 'mr-1']"></i>
-                                                {{ guest.souvenir ? 'SCAN' : 'BELUM' }}
+                                                {{ guest.souvenir ? 'SUDAH SCAN' : 'BELUM SCAN' }}
                                             </span>
                                         </template>
                                     </td>
@@ -305,9 +383,11 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Pagination -->
                     <div class="bg-slate-50 border-t border-slate-200 p-2.5 flex justify-between items-center text-xs text-slate-600">
                         <button @click="updatePage(key, -1)" :disabled="page[key] === 1" class="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 rounded shadow-sm disabled:opacity-40 transition-colors">Prev</button>
-                        <span class="font-mono font-medium text-[11px]">Hal {{ page[key] }} / {{ Math.ceil(getList(key).length / itemsPerPage) || 1 }}</span>
+                        <span class="font-mono font-medium text-[11px]">Hal {{ page[key] }} / {{ Math.ceil(getList(key).length / itemsPerPage) || 1 }} ({{ getList(key).length }} data)</span>
                         <button @click="updatePage(key, 1)" :disabled="page[key] >= Math.ceil(getList(key).length / itemsPerPage)" class="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 rounded shadow-sm disabled:opacity-40 transition-colors">Next</button>
                     </div>
                 </div>
@@ -339,9 +419,15 @@
                     
                     availableFields: [],
                     visibleFields: ['Nama', 'Nim', 'Prodi', 'Jurusan', 'Sesi', 'Nokur'],
-                    showFieldConfig: false, // Default collapse tertutup
-                    selectedJurusanFilter: '', // Filter dari URL / Tabel
                     
+                    // Kedua bagian di-set collapse (tersembunyi) saat awal muat halaman
+                    showFieldConfig: false, 
+                    showJurusanTable: false, 
+                    
+                    selectedJurusanFilter: '', 
+                    
+                    // Filter tab masing-masing kolom: 'all' (Semua: Sudah di atas + Belum di bawah), 'done' (Sudah), 'pending' (Belum)
+                    statusFilter: { rsvp: 'all', arrival: 'all', souvenir: 'all' },
                     searchQuery: { rsvp: '', arrival: '', souvenir: '' }
                 }; 
             },
@@ -350,9 +436,7 @@
                     return this.inputPin === 'undangin';
                 },
                 stats() { 
-                    const baseList = this.selectedJurusanFilter 
-                        ? this.guests.filter(g => String(this.getFieldValue(g, 'Jurusan')).toLowerCase() === this.selectedJurusanFilter.toLowerCase())
-                        : this.guests;
+                    const baseList = this.getBaseFilteredGuests();
 
                     const totalRsvp = baseList.filter(g => g.rsvp === true).length;
                     const totalHadir = baseList.filter(g => g.arrival === true).length;
@@ -360,9 +444,9 @@
 
                     return { 
                         total: { label: 'Total Tamu', val: baseList.length, subLabel: 'Total Terdaftar', subVal: this.guests.length, icon: 'fa-users', iconColor: 'text-slate-500', border: 'border-l-4 border-l-slate-400' }, 
-                        rsvp: { label: 'Konfirmasi RSVP', val: totalRsvp, icon: 'fa-calendar-check', iconColor: 'text-indigo-600', border: 'border-l-4 border-l-indigo-500' }, 
-                        arr: { label: 'Gladi', val: totalHadir, icon: 'fa-door-open', iconColor: 'text-emerald-600', border: 'border-l-4 border-l-emerald-500' }, 
-                        konsumsi: { label: 'Kedatangan', val: totalKonsumsi, icon: 'fa-check-circle', iconColor: 'text-amber-500', border: 'border-l-4 border-l-amber-500' }
+                        rsvp: { label: 'Konfirmasi RSVP', val: totalRsvp, subLabel: 'Belum RSVP', subVal: baseList.length - totalRsvp, icon: 'fa-calendar-check', iconColor: 'text-indigo-600', border: 'border-l-4 border-l-indigo-500' }, 
+                        arr: { label: 'Gladi', val: totalHadir, subLabel: 'Belum Scan', subVal: baseList.length - totalHadir, icon: 'fa-door-open', iconColor: 'text-emerald-600', border: 'border-l-4 border-l-emerald-500' }, 
+                        konsumsi: { label: 'Kedatangan', val: totalKonsumsi, subLabel: 'Belum Scan', subVal: baseList.length - totalKonsumsi, icon: 'fa-check-circle', iconColor: 'text-amber-500', border: 'border-l-4 border-l-amber-500' }
                     }; 
                 },
                 jurusanSummary() {
@@ -372,22 +456,21 @@
                         if (!jName || jName === '-') jName = 'Lainnya';
                         
                         if (!map[jName]) {
-                            map[jName] = { name: jName, totalRsvp: 0, hadir: 0, belum: 0, tidakHadir: 0 };
+                            map[jName] = { 
+                                name: jName, 
+                                totalTamu: 0, 
+                                totalRsvp: 0, 
+                                totalGladi: 0, 
+                                totalKedatangan: 0 
+                            };
                         }
 
-                        // Berdasarkan status RSVP
-                        if (g.rsvp === true) {
-                            map[jName].totalRsvp++;
-                            if (g.arrival === true) {
-                                map[jName].hadir++;      // RSVP = true & Kedatangan/Gladi = true
-                            } else {
-                                map[jName].belum++;      // RSVP = true & Kedatangan/Gladi = false
-                            }
-                        } else {
-                            map[jName].tidakHadir++;     // RSVP = false (Tidak RSVP)
-                        }
+                        map[jName].totalTamu++;
+                        if (g.rsvp === true) map[jName].totalRsvp++;
+                        if (g.arrival === true) map[jName].totalGladi++;
+                        if (g.souvenir === true) map[jName].totalKedatangan++;
                     });
-                    return Object.values(map).sort((a, b) => b.totalRsvp - a.totalRsvp);
+                    return Object.values(map).sort((a, b) => b.totalTamu - a.totalTamu);
                 }
             },
             methods: {
@@ -408,33 +491,50 @@
                     return '-';
                 },
 
-                getList(type) { 
-                    let filtered = this.guests.filter(g => {
-                        if (type === 'rsvp') return g.rsvp === true;
-                        if (type === 'arrival') return g.arrival === true;
-                        if (type === 'souvenir') return g.souvenir === true;
-                        return false;
+                getBaseFilteredGuests() {
+                    if (!this.selectedJurusanFilter) return this.guests;
+                    return this.guests.filter(g => {
+                        const j = String(this.getFieldValue(g, 'Jurusan')).toLowerCase();
+                        return j === this.selectedJurusanFilter.toLowerCase();
                     });
+                },
+
+                getCountByStatus(type, isDone) {
+                    const base = this.getBaseFilteredGuests();
+                    return base.filter(g => Boolean(g[type]) === isDone).length;
+                },
+
+                getList(type) { 
+                    let filtered = [...this.getBaseFilteredGuests()];
                     
-                    // Filter berdasarkan Jurusan (jika ada parameter URL / klik tabel)
-                    if (this.selectedJurusanFilter) {
-                        filtered = filtered.filter(g => {
-                            const j = String(this.getFieldValue(g, 'Jurusan')).toLowerCase();
-                            return j === this.selectedJurusanFilter.toLowerCase();
-                        });
+                    // Filter berdasarkan tab status (Semua / Sudah / Belum)
+                    const currentFilter = this.statusFilter[type];
+                    if (currentFilter === 'done') {
+                        filtered = filtered.filter(g => g[type] === true);
+                    } else if (currentFilter === 'pending') {
+                        filtered = filtered.filter(g => !g[type]);
                     }
 
+                    // Filter berdasarkan input pencarian
                     const query = this.searchQuery[type].trim().toLowerCase();
                     if (query) {
                         filtered = filtered.filter(g => {
                             const nama = String(this.getFieldValue(g, 'Nama')).toLowerCase();
                             const nim = String(this.getFieldValue(g, 'Nim')).toLowerCase();
                             const prodi = String(this.getFieldValue(g, 'Prodi')).toLowerCase();
-                            return nama.includes(query) || nim.includes(query) || prodi.includes(query);
+                            const jurusan = String(this.getFieldValue(g, 'Jurusan')).toLowerCase();
+                            return nama.includes(query) || nim.includes(query) || prodi.includes(query) || jurusan.includes(query);
                         });
                     }
 
+                    // Urutkan: Yang SUDAH (true) tampil di atas, kemudian yang BELUM (false) di bawahnya.
+                    // Jika statusnya sama, urutkan dari waktu update terbaru.
                     filtered.sort((a, b) => {
+                        const statusA = a[type] ? 1 : 0;
+                        const statusB = b[type] ? 1 : 0;
+                        if (statusB !== statusA) {
+                            return statusB - statusA;
+                        }
                         const dateA = new Date(a.updated_at || 0).getTime();
                         const dateB = new Date(b.updated_at || 0).getTime();
                         return dateB - dateA;
@@ -460,7 +560,12 @@
                 },
 
                 filterByJurusan(jurusanName) {
+                    if (this.selectedJurusanFilter.toLowerCase() === jurusanName.toLowerCase()) {
+                        this.clearJurusanFilter();
+                        return;
+                    }
                     this.selectedJurusanFilter = jurusanName;
+                    this.page = { rsvp: 1, arrival: 1, souvenir: 1 };
                     const url = new URL(window.location);
                     url.searchParams.set('jurusan', jurusanName);
                     window.history.pushState({}, '', url);
@@ -468,6 +573,7 @@
 
                 clearJurusanFilter() {
                     this.selectedJurusanFilter = '';
+                    this.page = { rsvp: 1, arrival: 1, souvenir: 1 };
                     const url = new URL(window.location);
                     url.searchParams.delete('jurusan');
                     window.history.pushState({}, '', url);
@@ -549,23 +655,23 @@
                 },
 
                 exportToExcel(targetType) {
-                    let dataset = targetType === 'all' ? [...this.guests] : this.getList(targetType);
+                    let dataset = targetType === 'all' ? [...this.getBaseFilteredGuests()] : this.getList(targetType);
                     if (dataset.length === 0) {
                         alert("Tidak ada data untuk diexport!");
                         return;
                     }
 
-                    let tableHTML = `<table border="1"><thead><tr><th>ID</th><th>NIM</th><th>Nama Peserta</th><th>Prodi</th><th>Jurusan</th><th>RSVP</th><th>Kedatangan</th><th>Konsumsi</th><th>Updated At</th></tr></thead><tbody>`;
+                    let tableHTML = `<table border="1"><thead><tr><th>ID</th><th>NIM</th><th>Nama Peserta</th><th>Prodi</th><th>Jurusan</th><th>RSVP</th><th>Gladi</th><th>Kedatangan</th><th>Updated At</th></tr></thead><tbody>`;
                     dataset.forEach(g => {
                         tableHTML += `<tr>
                             <td>${g.id}</td>
-                            <td>${g.data?.Nim || '-'}</td>
-                            <td>${g.data?.Nama || '-'}</td>
-                            <td>${g.data?.Prodi || '-'}</td>
-                            <td>${g.data?.Jurusan || '-'}</td>
-                            <td>${g.rsvp ? 'Ya' : 'Tidak'}</td>
-                            <td>${g.arrival ? 'Hadir' : 'Belum'}</td>
-                            <td>${g.souvenir ? 'Sudah' : 'Belum'}</td>
+                            <td>${this.getFieldValue(g, 'Nim')}</td>
+                            <td>${this.getFieldValue(g, 'Nama')}</td>
+                            <td>${this.getFieldValue(g, 'Prodi')}</td>
+                            <td>${this.getFieldValue(g, 'Jurusan')}</td>
+                            <td>${g.rsvp ? 'Sudah RSVP' : 'Belum RSVP'}</td>
+                            <td>${g.arrival ? 'Sudah Scan' : 'Belum Scan'}</td>
+                            <td>${g.souvenir ? 'Sudah Scan' : 'Belum Scan'}</td>
                             <td>${g.updated_at || '-'}</td>
                         </tr>`;
                     });
@@ -574,7 +680,8 @@
                     const blob = new Blob(['\ufeff' + tableHTML], { type: 'application/vnd.ms-excel' });
                     const downloadLink = document.createElement("a");
                     downloadLink.href = URL.createObjectURL(blob);
-                    downloadLink.download = `Export_${targetType.toUpperCase()}_${new Date().toISOString().slice(0,10)}.xls`;
+                    const filterSuffix = this.selectedJurusanFilter ? `_${this.selectedJurusanFilter.replace(/\s+/g, '_')}` : '';
+                    downloadLink.download = `Export_${targetType.toUpperCase()}${filterSuffix}_${new Date().toISOString().slice(0,10)}.xls`;
                     document.body.appendChild(downloadLink);
                     downloadLink.click();
                     document.body.removeChild(downloadLink);
