@@ -243,8 +243,8 @@
                     ]">
                         <div class="flex items-center gap-2">
                             <h2 class="font-bold uppercase tracking-wider text-xs md:text-sm">{{ type }}</h2>
-                            <span class="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-mono font-semibold" title="Sudah / Total">
-                                {{ getCountByStatus(key, true) }} / {{ getBaseFilteredGuests().length }}
+                            <span class="text-[10px] bg-black/20 px-2 py-0.5 rounded-full font-mono font-semibold" title="Jumlah Data Ditampilkan">
+                                {{ getList(key).length }}
                             </span>
                         </div>
                         
@@ -258,30 +258,19 @@
                         </button>
                     </div>
 
-                    <!-- Tab Filter Status (Semua, Sudah, Belum) -->
+                    <!-- Tab Filter Status (Hanya Sudah & Belum) -->
                     <div class="px-2.5 pt-2.5 bg-white flex gap-1.5 border-b border-slate-100 pb-2 text-[11px] font-bold">
-                        <button 
-                            @click="statusFilter[key] = 'all'; page[key] = 1" 
-                            :class="[
-                                'flex-1 py-1.5 px-2 rounded-lg border transition-colors flex items-center justify-center gap-1',
-                                statusFilter[key] === 'all' 
-                                    ? 'bg-slate-800 text-white border-slate-800 shadow-sm' 
-                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                            ]"
-                        >
-                            <span>Semua</span>
-                            <span class="text-[10px] font-mono opacity-80">({{ getBaseFilteredGuests().length }})</span>
-                        </button>
                         <button 
                             @click="statusFilter[key] = 'done'; page[key] = 1" 
                             :class="[
                                 'flex-1 py-1.5 px-2 rounded-lg border transition-colors flex items-center justify-center gap-1',
                                 statusFilter[key] === 'done' 
-                                    ? (key === 'rsvp' ? 'bg-indigo-600 text-white border-indigo-600' : (key === 'arrival' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-amber-600 text-white border-amber-600'))
+                                    ? (key === 'rsvp' ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : (key === 'arrival' ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-amber-600 text-white border-amber-600 shadow-sm'))
                                     : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                             ]"
                         >
-                            <span>{{ key === 'rsvp' ? 'Sudah RSVP' : 'Sudah Scan' }}</span>
+                            <i :class="['fas', key === 'rsvp' ? 'fa-calendar-check' : 'fa-check-circle']"></i>
+                            <span>{{ key === 'rsvp' ? 'Sudah Konfirmasi' : 'Sudah Scan' }}</span>
                             <span class="text-[10px] font-mono opacity-90">({{ getCountByStatus(key, true) }})</span>
                         </button>
                         <button 
@@ -293,7 +282,8 @@
                                     : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                             ]"
                         >
-                            <span>{{ key === 'rsvp' ? 'Belum RSVP' : 'Belum Scan' }}</span>
+                            <i class="fas fa-clock"></i>
+                            <span>{{ key === 'rsvp' ? 'Belum Konfirmasi' : 'Belum Scan' }}</span>
                             <span class="text-[10px] font-mono opacity-90">({{ getCountByStatus(key, false) }})</span>
                         </button>
                     </div>
@@ -426,8 +416,8 @@
                     
                     selectedJurusanFilter: '', 
                     
-                    // Filter tab masing-masing kolom: 'all' (Semua: Sudah di atas + Belum di bawah), 'done' (Sudah), 'pending' (Belum)
-                    statusFilter: { rsvp: 'all', arrival: 'all', souvenir: 'all' },
+                    // Default langsung menampilkan yang 'done' (Sudah Konfirmasi / Sudah Scan)
+                    statusFilter: { rsvp: 'done', arrival: 'done', souvenir: 'done' },
                     searchQuery: { rsvp: '', arrival: '', souvenir: '' }
                 }; 
             },
@@ -507,7 +497,7 @@
                 getList(type) { 
                     let filtered = [...this.getBaseFilteredGuests()];
                     
-                    // Filter berdasarkan tab status (Semua / Sudah / Belum)
+                    // Filter berdasarkan tab status ('done' untuk Sudah, 'pending' untuk Belum)
                     const currentFilter = this.statusFilter[type];
                     if (currentFilter === 'done') {
                         filtered = filtered.filter(g => g[type] === true);
@@ -527,14 +517,8 @@
                         });
                     }
 
-                    // Urutkan: Yang SUDAH (true) tampil di atas, kemudian yang BELUM (false) di bawahnya.
-                    // Jika statusnya sama, urutkan dari waktu update terbaru.
+                    // Urutkan berdasarkan waktu update terbaru
                     filtered.sort((a, b) => {
-                        const statusA = a[type] ? 1 : 0;
-                        const statusB = b[type] ? 1 : 0;
-                        if (statusB !== statusA) {
-                            return statusB - statusA;
-                        }
                         const dateA = new Date(a.updated_at || 0).getTime();
                         const dateB = new Date(b.updated_at || 0).getTime();
                         return dateB - dateA;
@@ -681,7 +665,8 @@
                     const downloadLink = document.createElement("a");
                     downloadLink.href = URL.createObjectURL(blob);
                     const filterSuffix = this.selectedJurusanFilter ? `_${this.selectedJurusanFilter.replace(/\s+/g, '_')}` : '';
-                    downloadLink.download = `Export_${targetType.toUpperCase()}${filterSuffix}_${new Date().toISOString().slice(0,10)}.xls`;
+                    const statusSuffix = targetType !== 'all' ? `_${this.statusFilter[targetType].toUpperCase()}` : '';
+                    downloadLink.download = `Export_${targetType.toUpperCase()}${statusSuffix}${filterSuffix}_${new Date().toISOString().slice(0,10)}.xls`;
                     document.body.appendChild(downloadLink);
                     downloadLink.click();
                     document.body.removeChild(downloadLink);
