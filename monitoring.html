@@ -130,24 +130,24 @@
             </div>
         </div>
 
-        <!-- Tabel Kecil Rekapitulasi Berdasarkan Jurusan -->
+        <!-- Tabel Kecil Rekapitulasi Berdasarkan Jurusan (Dihitung dari RSVP) -->
         <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
-            <div class="flex items-center justify-between border-b border-slate-200 pb-2 mb-3">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2 mb-3 flex-wrap gap-2">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-chart-pie text-blue-600 text-sm"></i>
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Rekapitulasi Kehadiran Per Jurusan</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Rekapitulasi RSVP Per Jurusan</h3>
                 </div>
-                <span class="text-[10px] text-slate-400 italic">Klik nama jurusan untuk memfilter tabel di bawah</span>
+                <span class="text-[10px] text-slate-400 italic">Klik nama jurusan untuk memfilter tabel atau gunakan parameter URL ?jurusan=NAMA_JURUSAN</span>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-slate-100 text-slate-600 text-[11px] border-b border-slate-200">
                             <th class="p-2.5">JURUSAN</th>
-                            <th class="p-2.5 text-center">TOTAL</th>
-                            <th class="p-2.5 text-center text-emerald-700">HADIR</th>
-                            <th class="p-2.5 text-center text-amber-600">BELUM HADIR</th>
-                            <th class="p-2.5 text-center text-red-600">TIDAK HADIR</th>
+                            <th class="p-2.5 text-center">TOTAL RSVP</th>
+                            <th class="p-2.5 text-center text-emerald-700">HADIR (RSVP & SCAN)</th>
+                            <th class="p-2.5 text-center text-amber-600">BELUM HADIR (RSVP Saja)</th>
+                            <th class="p-2.5 text-center text-red-600">TIDAK HADIR (Non-RSVP)</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-xs">
@@ -155,7 +155,7 @@
                             <td class="p-2.5 font-bold text-blue-600 hover:underline flex items-center gap-1.5">
                                 <i class="fas fa-graduation-cap text-[10px]"></i> {{ j.name }}
                             </td>
-                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.total }}</td>
+                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.totalRsvp }}</td>
                             <td class="p-2.5 text-center font-mono text-emerald-700 font-bold bg-emerald-50/30">{{ j.hadir }}</td>
                             <td class="p-2.5 text-center font-mono text-amber-600 font-bold bg-amber-50/30">{{ j.belum }}</td>
                             <td class="p-2.5 text-center font-mono text-red-600 font-bold bg-red-50/30">{{ j.tidakHadir }}</td>
@@ -372,20 +372,22 @@
                         if (!jName || jName === '-') jName = 'Lainnya';
                         
                         if (!map[jName]) {
-                            map[jName] = { name: jName, total: 0, hadir: 0, belum: 0, tidakHadir: 0 };
+                            map[jName] = { name: jName, totalRsvp: 0, hadir: 0, belum: 0, tidakHadir: 0 };
                         }
-                        map[jName].total++;
-                        
-                        // Kategori Hadir (arrival true), Belum Hadir (rsvp true tapi arrival false), Tidak Hadir (rsvp false)
-                        if (g.arrival === true) {
-                            map[jName].hadir++;
-                        } else if (g.rsvp === true) {
-                            map[jName].belum++;
+
+                        // Berdasarkan status RSVP
+                        if (g.rsvp === true) {
+                            map[jName].totalRsvp++;
+                            if (g.arrival === true) {
+                                map[jName].hadir++;      // RSVP = true & Kedatangan/Gladi = true
+                            } else {
+                                map[jName].belum++;      // RSVP = true & Kedatangan/Gladi = false
+                            }
                         } else {
-                            map[jName].tidakHadir++;
+                            map[jName].tidakHadir++;     // RSVP = false (Tidak RSVP)
                         }
                     });
-                    return Object.values(map).sort((a, b) => b.total - a.total);
+                    return Object.values(map).sort((a, b) => b.totalRsvp - a.totalRsvp);
                 }
             },
             methods: {
