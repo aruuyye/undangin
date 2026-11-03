@@ -86,6 +86,12 @@
             </div>
             
             <div class="flex items-center gap-3 flex-wrap">
+                <!-- Indikator Filter Jurusan Aktif -->
+                <div v-if="selectedJurusanFilter" class="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm">
+                    <span><i class="fas fa-filter mr-1"></i> Filter Jurusan: <strong>{{ selectedJurusanFilter }}</strong></span>
+                    <button @click="clearJurusanFilter" class="hover:text-blue-900 ml-1"><i class="fas fa-times-circle"></i></button>
+                </div>
+
                 <button v-if="isUnlocked" @click="exportToExcel('all')" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow transition-colors">
                     <i class="fas fa-file-excel mr-1"></i> Export Semua Data
                 </button>
@@ -124,20 +130,61 @@
             </div>
         </div>
 
-        <!-- Pengaturan Field Info Peserta -->
+        <!-- Tabel Kecil Rekapitulasi Berdasarkan Jurusan -->
         <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
-            <div class="flex items-center justify-between border-b border-slate-200 pb-2 mb-3 flex-wrap gap-2">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-2 mb-3">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-chart-pie text-blue-600 text-sm"></i>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Rekapitulasi Kehadiran Per Jurusan</h3>
+                </div>
+                <span class="text-[10px] text-slate-400 italic">Klik nama jurusan untuk memfilter tabel di bawah</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 text-[11px] border-b border-slate-200">
+                            <th class="p-2.5">JURUSAN</th>
+                            <th class="p-2.5 text-center">TOTAL</th>
+                            <th class="p-2.5 text-center text-emerald-700">HADIR</th>
+                            <th class="p-2.5 text-center text-amber-600">BELUM HADIR</th>
+                            <th class="p-2.5 text-center text-red-600">TIDAK HADIR</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        <tr v-for="j in jurusanSummary" :key="j.name" @click="filterByJurusan(j.name)" class="hover:bg-blue-50/50 cursor-pointer transition-colors">
+                            <td class="p-2.5 font-bold text-blue-600 hover:underline flex items-center gap-1.5">
+                                <i class="fas fa-graduation-cap text-[10px]"></i> {{ j.name }}
+                            </td>
+                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.total }}</td>
+                            <td class="p-2.5 text-center font-mono text-emerald-700 font-bold bg-emerald-50/30">{{ j.hadir }}</td>
+                            <td class="p-2.5 text-center font-mono text-amber-600 font-bold bg-amber-50/30">{{ j.belum }}</td>
+                            <td class="p-2.5 text-center font-mono text-red-600 font-bold bg-red-50/30">{{ j.tidakHadir }}</td>
+                        </tr>
+                        <tr v-if="jurusanSummary.length === 0">
+                            <td colspan="5" class="p-4 text-center text-slate-400 italic">Belum ada data jurusan</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pengaturan Field Info Peserta (Collapse Default Hidden) -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
+            <div class="flex items-center justify-between cursor-pointer select-none" @click="showFieldConfig = !showFieldConfig">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-table-columns text-blue-600 text-sm"></i>
                     <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Tampilan Info Peserta (Pilih Field)</h3>
                 </div>
-                <div :class="['text-[10px] px-2 py-0.5 rounded font-bold', isUnlocked ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200']">
-                    <i :class="['fas mr-1', isUnlocked ? 'fa-unlock' : 'fa-lock']"></i>
-                    {{ isUnlocked ? 'Mode Edit Terbuka' : 'Terkunci' }}
+                <div class="flex items-center gap-2">
+                    <div :class="['text-[10px] px-2 py-0.5 rounded font-bold', isUnlocked ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200']">
+                        <i :class="['fas mr-1', isUnlocked ? 'fa-unlock' : 'fa-lock']"></i>
+                        {{ isUnlocked ? 'Mode Edit Terbuka' : 'Terkunci' }}
+                    </div>
+                    <i :class="['fas text-slate-400 transition-transform duration-200', showFieldConfig ? 'fa-chevron-up' : 'fa-chevron-down']"></i>
                 </div>
             </div>
             
-            <div class="flex flex-wrap gap-2 items-center max-h-48 overflow-y-auto p-1">
+            <div v-if="showFieldConfig" class="flex flex-wrap gap-2 items-center max-h-48 overflow-y-auto p-1 mt-3 pt-3 border-t border-slate-200">
                 <div v-if="availableFields.length === 0" class="text-xs text-slate-400 italic">
                     Memuat data field dari JSON...
                 </div>
@@ -284,7 +331,7 @@
                     eventName: 'LIVE MONITORING', 
                     totalGuests: 0, 
                     page: { rsvp: 1, arrival: 1, souvenir: 1 }, 
-                    itemsPerPage: 15, // DIBATASI 15 BARIS PER HALAMAN
+                    itemsPerPage: 15,
                     syncing: false, 
                     error: null,
                     pollingTimer: null,
@@ -292,6 +339,8 @@
                     
                     availableFields: [],
                     visibleFields: ['Nama', 'Nim', 'Prodi', 'Jurusan', 'Sesi', 'Nokur'],
+                    showFieldConfig: false, // Default collapse tertutup
+                    selectedJurusanFilter: '', // Filter dari URL / Tabel
                     
                     searchQuery: { rsvp: '', arrival: '', souvenir: '' }
                 }; 
@@ -301,16 +350,42 @@
                     return this.inputPin === 'undangin';
                 },
                 stats() { 
-                    const totalRsvp = this.guests.filter(g => g.rsvp === true).length;
-                    const totalHadir = this.guests.filter(g => g.arrival === true).length;
-                    const totalKonsumsi = this.guests.filter(g => g.souvenir === true).length;
+                    const baseList = this.selectedJurusanFilter 
+                        ? this.guests.filter(g => String(this.getFieldValue(g, 'Jurusan')).toLowerCase() === this.selectedJurusanFilter.toLowerCase())
+                        : this.guests;
+
+                    const totalRsvp = baseList.filter(g => g.rsvp === true).length;
+                    const totalHadir = baseList.filter(g => g.arrival === true).length;
+                    const totalKonsumsi = baseList.filter(g => g.souvenir === true).length;
 
                     return { 
-                        total: { label: 'Total Tamu', val: this.totalGuests, subLabel: 'Total Terdaftar', subVal: this.guests.length, icon: 'fa-users', iconColor: 'text-slate-500', border: 'border-l-4 border-l-slate-400' }, 
+                        total: { label: 'Total Tamu', val: baseList.length, subLabel: 'Total Terdaftar', subVal: this.guests.length, icon: 'fa-users', iconColor: 'text-slate-500', border: 'border-l-4 border-l-slate-400' }, 
                         rsvp: { label: 'Konfirmasi RSVP', val: totalRsvp, icon: 'fa-calendar-check', iconColor: 'text-indigo-600', border: 'border-l-4 border-l-indigo-500' }, 
                         arr: { label: 'Gladi', val: totalHadir, icon: 'fa-door-open', iconColor: 'text-emerald-600', border: 'border-l-4 border-l-emerald-500' }, 
                         konsumsi: { label: 'Kedatangan', val: totalKonsumsi, icon: 'fa-check-circle', iconColor: 'text-amber-500', border: 'border-l-4 border-l-amber-500' }
                     }; 
+                },
+                jurusanSummary() {
+                    let map = {};
+                    this.guests.forEach(g => {
+                        let jName = this.getFieldValue(g, 'Jurusan');
+                        if (!jName || jName === '-') jName = 'Lainnya';
+                        
+                        if (!map[jName]) {
+                            map[jName] = { name: jName, total: 0, hadir: 0, belum: 0, tidakHadir: 0 };
+                        }
+                        map[jName].total++;
+                        
+                        // Kategori Hadir (arrival true), Belum Hadir (rsvp true tapi arrival false), Tidak Hadir (rsvp false)
+                        if (g.arrival === true) {
+                            map[jName].hadir++;
+                        } else if (g.rsvp === true) {
+                            map[jName].belum++;
+                        } else {
+                            map[jName].tidakHadir++;
+                        }
+                    });
+                    return Object.values(map).sort((a, b) => b.total - a.total);
                 }
             },
             methods: {
@@ -339,6 +414,14 @@
                         return false;
                     });
                     
+                    // Filter berdasarkan Jurusan (jika ada parameter URL / klik tabel)
+                    if (this.selectedJurusanFilter) {
+                        filtered = filtered.filter(g => {
+                            const j = String(this.getFieldValue(g, 'Jurusan')).toLowerCase();
+                            return j === this.selectedJurusanFilter.toLowerCase();
+                        });
+                    }
+
                     const query = this.searchQuery[type].trim().toLowerCase();
                     if (query) {
                         filtered = filtered.filter(g => {
@@ -349,11 +432,10 @@
                         });
                     }
 
-                    // Logika Sorting: Waktu paling baru (updated_at terbesar) berada di atas
                     filtered.sort((a, b) => {
                         const dateA = new Date(a.updated_at || 0).getTime();
                         const dateB = new Date(b.updated_at || 0).getTime();
-                        return dateB - dateA; // Descending order
+                        return dateB - dateA;
                     });
 
                     return filtered;
@@ -373,6 +455,28 @@
                     const newPage = this.page[type] + val; 
                     const maxPage = Math.ceil(this.getList(type).length / this.itemsPerPage) || 1;
                     if (newPage > 0 && newPage <= maxPage) this.page[type] = newPage; 
+                },
+
+                filterByJurusan(jurusanName) {
+                    this.selectedJurusanFilter = jurusanName;
+                    const url = new URL(window.location);
+                    url.searchParams.set('jurusan', jurusanName);
+                    window.history.pushState({}, '', url);
+                },
+
+                clearJurusanFilter() {
+                    this.selectedJurusanFilter = '';
+                    const url = new URL(window.location);
+                    url.searchParams.delete('jurusan');
+                    window.history.pushState({}, '', url);
+                },
+
+                checkUrlParams() {
+                    const params = new URLSearchParams(window.location.search);
+                    const jurParam = params.get('jurusan');
+                    if (jurParam) {
+                        this.selectedJurusanFilter = jurParam;
+                    }
                 },
 
                 openSettings() { 
@@ -475,6 +579,7 @@
                 }
             },
             mounted() {
+                this.checkUrlParams();
                 const conf = localStorage.getItem('gh_monitor_config'); 
                 if (conf) this.config = JSON.parse(conf);
                 this.fetchData();
