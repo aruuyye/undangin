@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Mencegah browser menyimpan cache halaman -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Arrival Monitor - Kedatangan Polije</title>
     <link rel="icon" type="image/png" href="https://undangin.polije.ac.id/images/favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
@@ -85,7 +89,7 @@
         Status: Menyiapkan koneksi...
     </div>
 
-    <!-- FLOATING CONTROLS FOR TV BROWSER -->
+    <!-- FLOATING CONTROLS FOR TV BROWSER (TANPA TOMBOL TAMBAHAN) -->
     <div id="fullscreen-control" style="position: fixed; bottom: 2rem; right: 2rem; z-index: 99999; opacity: 0.3; transition: 0.3s; display: flex; gap: 0.75rem; align-items: center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.3'">
         <button onclick="toggleFitMode()" title="Ubah Ukuran Fit Layar" style="background: rgba(15, 23, 42, 0.85); border: 1px solid #38bdf8; color: #38bdf8; width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(8px); box-shadow: 0 10px 25px rgba(0,0,0,0.5); outline: none;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-bottom: 2px;">
@@ -111,6 +115,19 @@
 
         let lastDataHash = "";
         let isFetching = false;
+        
+        // Variabel Sistem Auto-Reload & Watchdog
+        let errorCount = 0;
+        const MAX_ERRORS_BEFORE_RELOAD = 5; // Reload paksa jika gagal fetch 5x berturut-turut
+        let lastSuccessFetchTime = Date.now();
+        const HARD_RELOAD_INTERVAL = 30 * 60 * 1000; // Paksa bersihkan memori setiap 30 menit
+
+        // Fungsi sistem untuk memaksa reload halaman penuh tanpa cache
+        function systemForceReload() {
+            const url = new URL(window.location.href);
+            url.searchParams.set('_sys_reload', Date.now());
+            window.location.replace(url.toString());
+        }
 
         function extractGuestsArray(obj) {
             if (Array.isArray(obj)) return obj;
@@ -132,27 +149,55 @@
             let rawJson = null;
             let errorMessage = "";
 
+            // Controller untuk mencegah fetch menggantung terlalu lama (batas 5 detik)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
             try {
-                const directResponse = await fetch(`${API_DIRECT}?_t=${Date.now()}`);
+                const directResponse = await fetch(`${API_DIRECT}?_t=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: {
+                        'Pragma': 'no-cache',
+                        'Cache-Control': 'no-cache'
+                    },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
                 if (directResponse.ok) {
                     rawJson = await directResponse.json();
                 } else {
                     errorMessage = `HTTP Error: ${directResponse.status}`;
                 }
             } catch (err) {
-                errorMessage = `Direct: ${err.message}`;
+                clearTimeout(timeoutId);
+                errorMessage = err.name === 'AbortError' ? 'Request Timeout' : `Direct: ${err.message}`;
             }
 
             const statusEl = document.getElementById('connection-status');
             const listContainer = document.getElementById('guest-list');
 
             if (!rawJson) {
-                statusEl.innerText = "Status: Gagal Terhubung";
-                listContainer.innerHTML = `<div class="empty-state" style="color:#ef4444;">Gagal mengambil data dari API.<br><small>${errorMessage}</small></div>`;
+                errorCount++;
+                statusEl.innerText = `Status: Gangguan Koneksi (${errorCount}/${MAX_ERRORS_BEFORE_RELOAD}) - Mencoba ulang...`;
+                
+                // Jika gagal terus sampai batas maksimal, paksa reload seluruh sistem
+                if (errorCount >= MAX_ERRORS_BEFORE_RELOAD) {
+                    statusEl.innerText = "Status: Memuat ulang sistem secara otomatis...";
+                    systemForceReload();
+                    return;
+                }
+
+                if (lastDataHash === "") {
+                    listContainer.innerHTML = `<div class="empty-state" style="color:#ef4444;">Gagal mengambil data dari API.<br><small>${errorMessage}</small></div>`;
+                }
                 isFetching = false;
                 return;
             }
 
+            // Reset indikator error jika berhasil terhubung
+            errorCount = 0;
+            lastSuccessFetchTime = Date.now();
             statusEl.innerText = `Status: Terhubung (${new Date().toLocaleTimeString('id-ID')})`;
 
             let guests = extractGuestsArray(rawJson);
@@ -192,7 +237,9 @@
             });
 
             const top8Guests = filteredGuests.slice(0, 8);
-            const currentHash = JSON.stringify(top8Guests.map(g => g.id));
+            
+            // Deep Hash: Memantau perubahan ID, nama, maupun jam scan agar selalu ter-update
+            const currentHash = JSON.stringify(top8Guests);
             
             if (currentHash !== lastDataHash) {
                 lastDataHash = currentHash;
@@ -310,7 +357,27 @@
             updateFitModeLabel();
             autoFit();
             fetchKedatanganList();
+            
+            // Interval utama penarikan data (1,5 detik)
             setInterval(fetchKedatanganList, 1500); 
+
+            // Watchdog Timer: Cek setiap 5 detik, jika sistem macet > 15 detik, paksa reload
+            setInterval(() => {
+                if (Date.now() - lastSuccessFetchTime > 15000) {
+                    systemForceReload();
+                }
+            }, 5000);
+
+            // Hard Reload berkala setiap 30 menit untuk menjaga performa browser TV
+            setTimeout(() => {
+                systemForceReload();
+            }, HARD_RELOAD_INTERVAL);
+        });
+
+        // Jika koneksi internet TV baru menyala kembali, langsung tarik data/reload
+        window.addEventListener('online', () => {
+            errorCount = 0;
+            fetchKedatanganList();
         });
 
         window.addEventListener('resize', autoFit);
