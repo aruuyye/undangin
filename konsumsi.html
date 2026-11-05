@@ -47,7 +47,7 @@
 
         .guest-name { font-size: 22px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%; }
         .guest-item.latest .guest-name { color: #38bdf8; font-size: 26px; font-family: 'Playfair Display', serif; letter-spacing: 1px; }
-        .guest-time { font-size: 16px; font-weight: 600; color: #cbd5e1; }
+        .guest-time { font-size: 16px; font-weight: 600; color: #cbd5e1; font-family: monospace; }
         .guest-item.latest .guest-time { color: #38bdf8; }
         .empty-state { text-align: center; font-size: 22px; color: #cbd5e1; margin-top: 20px; font-weight: 400; font-family: 'Playfair Display', serif; font-style: italic; }
 
@@ -64,7 +64,7 @@
         <div id="visual-monitor-canvas" data-width="1440" data-height="960">
             <div class="header-section">
                 <img src="https://kui.polije.ac.id/files/profile/Profile-Kantor%20Internasional%20Politeknik%20Negeri%20Jember.webp" alt="Logo Polije">
-                <h1>Pengambilan Konsumsi</h1>
+                <h1 id="monitor-title">Pengambilan Konsumsi</h1>
                 <div class="divider-gold"></div>
                 <h2>Wisuda Ke-50 Politeknik Negeri Jember</h2>
             </div>
@@ -74,7 +74,7 @@
         </div>
     </div>
 
-    <!-- STAFF BADGE -->
+    <!-- STAFF / JURUSAN BADGE -->
     <div style="position: fixed; top: 1.5rem; right: 1.5rem; z-index: 99998; background: rgba(3, 10, 26, 0.8); border: 1px solid #38bdf8; color: #38bdf8; padding: 0.6rem 1.25rem; border-radius: 99px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; backdrop-filter: blur(5px);">
         <span style="width: 10px; height: 10px; background: #38bdf8; border-radius: 50%;"></span>
         <span id="staff-badge">STAFF: ALL</span>
@@ -94,112 +94,157 @@
             <span id="fit-mode-label" style="font-size: 0.5rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;">FIT</span>
         </button>
         <button onclick="toggleFullScreen()" title="Fullscreen" style="background: rgba(15, 23, 42, 0.85); border: 1px solid #38bdf8; color: #38bdf8; width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); box-shadow: 0 10px 25px rgba(0,0,0,0.5); outline: none;">
-            <svg id="fs-icon-open" width="28" height="28" viewBox="00 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
+            <svg id="fs-icon-open" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg>
             <svg id="fs-icon-close" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display: none;"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"></path></svg>
         </button>
     </div>
 
     <script>
-        const API_DIRECT = 'https://undangin.polije.ac.id/api/v1/event/12/guests';
-        
+        // Mengambil URL API dari pengaturan localStorage (jika pernah diset di dashboard) atau gunakan default
+        let savedConfig = {};
+        try {
+            savedConfig = JSON.parse(localStorage.getItem('gh_monitor_config') || '{}');
+        } catch (e) {}
+
+        const API_DIRECT = savedConfig.apiUrl || 'https://undangin.polije.ac.id/api/v1/event/12/guests';
+        let useCorsProxy = Boolean(savedConfig.useCorsProxy);
+
         const urlParams = new URLSearchParams(window.location.search);
         const targetStaff = urlParams.has('staff') ? urlParams.get('staff').toLowerCase().trim() : '';
-        
-        if (targetStaff) {
+        const targetJurusan = urlParams.has('jurusan') ? urlParams.get('jurusan').toLowerCase().trim() : '';
+
+        // Opsional: Bisa ubah judul lewat URL ?title=Kedatangan Wisudawan
+        if (urlParams.has('title')) {
+            document.getElementById('monitor-title').innerText = urlParams.get('title');
+        }
+
+        if (targetJurusan) {
+            document.getElementById('staff-badge').innerText = `JURUSAN: ${targetJurusan.toUpperCase()}`;
+        } else if (targetStaff) {
             document.getElementById('staff-badge').innerText = `STAFF: ${targetStaff.toUpperCase()}`;
         }
 
         let lastDataHash = "";
-        let isFetching = false;
+        let pollingTimer = null;
 
-        function extractGuestsArray(obj) {
-            if (Array.isArray(obj)) return obj;
-            if (obj && typeof obj === 'object') {
-                for (let key in obj) { if (Array.isArray(obj[key])) return obj[key]; }
-                for (let key in obj) {
-                    if (obj[key] && typeof obj[key] === 'object') {
-                        for (let innerKey in obj[key]) { if (Array.isArray(obj[key][innerKey])) return obj[key][innerKey]; }
-                    }
-                }
+        // Sama persis dengan getFieldValue di kode Live Event Monitoring Center
+        function getFieldValue(guest, fieldKey) {
+            if (guest[fieldKey] !== undefined && guest[fieldKey] !== null) {
+                return guest[fieldKey];
             }
-            return null;
+            let innerData = guest.data;
+            if (typeof innerData === 'string') {
+                try { innerData = JSON.parse(innerData); } catch (e) { innerData = {}; }
+            }
+            if (innerData && innerData[fieldKey] !== undefined && innerData[fieldKey] !== null) {
+                return innerData[fieldKey];
+            }
+            return '-';
         }
 
-        async function fetchGladiList() {
-            if (isFetching) return;
-            isFetching = true;
-
-            let rawJson = null;
-            let errorMessage = "";
-
-            try {
-                const directResponse = await fetch(`${API_DIRECT}?_t=${Date.now()}`);
-                if (directResponse.ok) {
-                    rawJson = await directResponse.json();
-                } else {
-                    errorMessage = `HTTP Error: ${directResponse.status}`;
-                }
-            } catch (err) {
-                errorMessage = `Direct: ${err.message}`;
+        // Sama persis dengan getFormattedTime di kode Live Event Monitoring Center
+        function getFormattedTime(guest) {
+            const customTime = getFieldValue(guest, 'scan_kepulangan');
+            if (customTime !== '-' && customTime !== '') {
+                return String(customTime).split(' ')[1] || String(customTime);
             }
+            if (guest.updated_at) {
+                return guest.updated_at.split(' ')[1] || guest.updated_at;
+            }
+            return '--:--';
+        }
+
+        async function fetchKedatanganList() {
+            if (pollingTimer) clearTimeout(pollingTimer);
 
             const statusEl = document.getElementById('connection-status');
             const listContainer = document.getElementById('guest-list');
 
-            if (!rawJson) {
-                statusEl.innerText = "Status: Gagal Terhubung";
-                listContainer.innerHTML = `<div class="empty-state" style="color:#ef4444;">Gagal mengambil data dari API.<br><small>${errorMessage}</small></div>`;
-                isFetching = false;
-                return;
+            let data = null;
+            let errorMessage = "";
+
+            let requestUrl = API_DIRECT;
+            if (useCorsProxy) {
+                requestUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_DIRECT);
             }
 
-            statusEl.innerText = `Status: Terhubung (${new Date().toLocaleTimeString('id-ID')})`;
-
-            let guests = extractGuestsArray(rawJson);
-
-            if (!guests) {
-                isFetching = false;
-                return;
-            }
-
-            let filteredGuests = guests.filter(guest => {
-                let innerData = guest.data;
-                if (typeof innerData === 'string') {
-                    try { innerData = JSON.parse(innerData); } catch (e) { innerData = {}; }
+            try {
+                const res = await fetch(requestUrl);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                data = await res.json();
+            } catch (err) {
+                errorMessage = err.message;
+                // Auto-Fallback ke CORS Proxy jika akses langsung diblokir browser
+                if (!useCorsProxy) {
+                    try {
+                        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_DIRECT);
+                        const proxyRes = await fetch(proxyUrl);
+                        if (proxyRes.ok) {
+                            data = await proxyRes.json();
+                            useCorsProxy = true;
+                        }
+                    } catch (proxyErr) {
+                        errorMessage = proxyErr.message;
+                    }
                 }
-                if (!innerData) innerData = {};
+            }
 
-                const scanTime = innerData.scan_kepulangan || guest.scan_kepulangan || innerData.gladi_at;
-                const hasScanGladi = (scanTime !== null && scanTime !== undefined && scanTime !== "");
-                
+            if (!data || !data.guests) {
+                statusEl.innerText = `Status: Gagal Terhubung (${errorMessage})`;
+                if (lastDataHash === "") {
+                    listContainer.innerHTML = `<div class="empty-state" style="color:#ef4444;">Gagal mengambil data dari API.<br><small>${errorMessage}</small></div>`;
+                }
+                pollingTimer = setTimeout(fetchKedatanganList, 2000);
+                return;
+            }
+
+            const guests = data.guests;
+
+            // Filter khusus halaman KEDATANGAN / KONSUMSI: membaca g.souvenir === true (sesuai dashboard)
+            let filteredGuests = guests.filter(g => {
+                const scanKepulangan = getFieldValue(g, 'scan_kepulangan');
+                const hasScan = (g.souvenir === true) || (scanKepulangan !== '-' && scanKepulangan !== '');
+
+                if (!hasScan) return false;
+
+                // Filter Jurusan jika ada ?jurusan=... di URL
+                if (targetJurusan !== "") {
+                    const j = String(getFieldValue(g, 'Jurusan')).toLowerCase();
+                    if (j !== targetJurusan) return false;
+                }
+
+                // Filter Staff jika ada ?staff=... di URL
                 if (targetStaff !== "") {
-                    const scannedById = guest.scanned_by || innerData.scanned_by;
-                    const mappedStaffName = scannedById ? `staff${scannedById}` : "";
-                    const isMatch = mappedStaffName === targetStaff;
-                    return hasScanGladi && isMatch;
+                    const scannedById = getFieldValue(g, 'scanned_by');
+                    const mappedStaffName = scannedById !== '-' ? `staff${scannedById}`.toLowerCase() : "";
+                    if (mappedStaffName !== targetStaff && String(scannedById).toLowerCase() !== targetStaff) {
+                        return false;
+                    }
                 }
-                
-                return hasScanGladi;
+
+                return true;
             });
 
+            // Urutkan berdasarkan waktu scan / updated_at terbaru
             filteredGuests.sort((a, b) => {
-                let innerA = typeof a.data === 'string' ? JSON.parse(a.data || '{}') : (a.data || {});
-                let innerB = typeof b.data === 'string' ? JSON.parse(b.data || '{}') : (b.data || {});
-                
-                const timeA = new Date(innerA.scan_kepulangan || a.scan_kepulangan || a.updated_at).getTime();
-                const timeB = new Date(innerB.scan_kepulangan || b.scan_kepulangan || b.updated_at).getTime();
-                return timeB - timeA;
+                const rawA = getFieldValue(a, 'scan_kepulangan') !== '-' ? getFieldValue(a, 'scan_kepulangan') : (a.updated_at || 0);
+                const rawB = getFieldValue(b, 'scan_kepulangan') !== '-' ? getFieldValue(b, 'scan_kepulangan') : (b.updated_at || 0);
+                const dateA = new Date(rawA).getTime() || 0;
+                const dateB = new Date(rawB).getTime() || 0;
+                return dateB - dateA;
             });
+
+            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Total Scan: ${filteredGuests.length} / ${guests.length}`;
 
             const top8Guests = filteredGuests.slice(0, 8);
-            const currentHash = JSON.stringify(top8Guests.map(g => g.id));
+            const currentHash = JSON.stringify(top8Guests.map(g => `${g.id}_${g.updated_at}_${g.souvenir}`));
             
             if (currentHash !== lastDataHash) {
                 lastDataHash = currentHash;
                 renderList(top8Guests);
             }
 
-            isFetching = false;
+            pollingTimer = setTimeout(fetchKedatanganList, 2000);
         }
 
         function renderList(guests) {
@@ -210,7 +255,7 @@
                     <div class="empty-state">
                         Belum ada kedatangan yang dipindai<br>
                         <span style="font-size:16px; font-family:'Plus Jakarta Sans', sans-serif;">
-                            (Filter: ${targetStaff ? targetStaff.toUpperCase() : 'SEMUA STAFF'})
+                            (Filter: ${targetJurusan ? targetJurusan.toUpperCase() : (targetStaff ? targetStaff.toUpperCase() : 'SEMUA STAFF')})
                         </span>
                     </div>`;
                 return;
@@ -220,23 +265,8 @@
             guests.forEach((guest, index) => {
                 const isLatest = index === 0;
                 
-                let innerData = guest.data;
-                if (typeof innerData === 'string') {
-                    try { innerData = JSON.parse(innerData); } catch (e) { innerData = {}; }
-                }
-                if (!innerData) innerData = {};
-
-                const guestName = innerData.Nama || innerData.nama || guest.name || guest.nama || 'Tanpa Nama';
-                
-                const rawTime = innerData.scan_kepulangan || guest.scan_kepulangan || guest.updated_at;
-                let timeFormatted = '--:--';
-                
-                if (rawTime) {
-                    const d = new Date(rawTime);
-                    if (!isNaN(d.getTime())) {
-                        timeFormatted = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    }
-                }
+                const guestName = getFieldValue(guest, 'Nama') !== '-' ? getFieldValue(guest, 'Nama') : (guest.name || 'Tanpa Nama');
+                const timeFormatted = getFormattedTime(guest);
 
                 htmlContent += `
                     <div class="guest-item ${isLatest ? 'latest' : ''}">
@@ -309,8 +339,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             updateFitModeLabel();
             autoFit();
-            fetchGladiList();
-            setInterval(fetchGladiList, 1500); 
+            fetchKedatanganList();
         });
 
         window.addEventListener('resize', autoFit);
