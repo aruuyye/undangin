@@ -3,10 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Mencegah browser menyimpan cache halaman -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <title>Arrival Monitor - Kedatangan Polije</title>
     <link rel="icon" type="image/png" href="https://undangin.polije.ac.id/images/favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
@@ -51,7 +47,7 @@
 
         .guest-name { font-size: 22px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%; }
         .guest-item.latest .guest-name { color: #38bdf8; font-size: 26px; font-family: 'Playfair Display', serif; letter-spacing: 1px; }
-        .guest-time { font-size: 16px; font-weight: 600; color: #cbd5e1; }
+        .guest-time { font-size: 16px; font-weight: 600; color: #cbd5e1; font-family: monospace; }
         .guest-item.latest .guest-time { color: #38bdf8; }
         .empty-state { text-align: center; font-size: 22px; color: #cbd5e1; margin-top: 20px; font-weight: 400; font-family: 'Playfair Display', serif; font-style: italic; }
 
@@ -68,7 +64,7 @@
         <div id="visual-monitor-canvas" data-width="1440" data-height="960">
             <div class="header-section">
                 <img src="https://kui.polije.ac.id/files/profile/Profile-Kantor%20Internasional%20Politeknik%20Negeri%20Jember.webp" alt="Logo Polije">
-                <h1>Kedatangan Gladi Wisudawan</h1>
+                <h1 id="monitor-title">Kedatangan Gladi Wisudawan</h1>
                 <div class="divider-gold"></div>
                 <h2>Wisuda Ke-50 Politeknik Negeri Jember</h2>
             </div>
@@ -78,10 +74,10 @@
         </div>
     </div>
 
-    <!-- STAFF BADGE -->
+    <!-- STAFF / JURUSAN BADGE -->
     <div style="position: fixed; top: 1.5rem; right: 1.5rem; z-index: 99998; background: rgba(3, 10, 26, 0.8); border: 1px solid #38bdf8; color: #38bdf8; padding: 0.6rem 1.25rem; border-radius: 99px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; backdrop-filter: blur(5px);">
         <span style="width: 10px; height: 10px; background: #38bdf8; border-radius: 50%;"></span>
-        <span id="staff-badge">STAFF: ALL</span>
+        <span id="staff-badge">FILTER: ALL</span>
     </div>
 
     <!-- CONNECTION STATUS INDICATOR -->
@@ -89,7 +85,7 @@
         Status: Menyiapkan koneksi...
     </div>
 
-    <!-- FLOATING CONTROLS FOR TV BROWSER (TANPA TOMBOL TAMBAHAN) -->
+    <!-- FLOATING CONTROLS FOR TV BROWSER -->
     <div id="fullscreen-control" style="position: fixed; bottom: 2rem; right: 2rem; z-index: 99999; opacity: 0.3; transition: 0.3s; display: flex; gap: 0.75rem; align-items: center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.3'">
         <button onclick="toggleFitMode()" title="Ubah Ukuran Fit Layar" style="background: rgba(15, 23, 42, 0.85); border: 1px solid #38bdf8; color: #38bdf8; width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(8px); box-shadow: 0 10px 25px rgba(0,0,0,0.5); outline: none;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-bottom: 2px;">
@@ -104,149 +100,151 @@
     </div>
 
     <script>
-        const API_DIRECT = 'https://undangin.polije.ac.id/api/v1/event/12/guests';
-        
+        // Mengambil URL API dari pengaturan localStorage (jika pernah diset di dashboard) atau gunakan default
+        let savedConfig = {};
+        try {
+            savedConfig = JSON.parse(localStorage.getItem('gh_monitor_config') || '{}');
+        } catch (e) {}
+
+        const API_DIRECT = savedConfig.apiUrl || 'https://undangin.polije.ac.id/api/v1/event/12/guests';
+        let useCorsProxy = Boolean(savedConfig.useCorsProxy);
+
         const urlParams = new URLSearchParams(window.location.search);
         const targetStaff = urlParams.has('staff') ? urlParams.get('staff').toLowerCase().trim() : '';
-        
-        if (targetStaff) {
+        const targetJurusan = urlParams.has('jurusan') ? urlParams.get('jurusan').toLowerCase().trim() : '';
+        // Mode: 'gladi' (arrival === true) atau 'kedatangan' (souvenir === true)
+        const targetMode = urlParams.get('mode') === 'kedatangan' ? 'souvenir' : 'arrival';
+
+        if (targetMode === 'souvenir') {
+            document.getElementById('monitor-title').innerText = 'Kedatangan Wisudawan';
+        }
+
+        if (targetJurusan) {
+            document.getElementById('staff-badge').innerText = `JURUSAN: ${targetJurusan.toUpperCase()}`;
+        } else if (targetStaff) {
             document.getElementById('staff-badge').innerText = `STAFF: ${targetStaff.toUpperCase()}`;
         }
 
         let lastDataHash = "";
-        let isFetching = false;
-        
-        // Variabel Sistem Auto-Reload & Watchdog
-        let errorCount = 0;
-        const MAX_ERRORS_BEFORE_RELOAD = 5; // Reload paksa jika gagal fetch 5x berturut-turut
-        let lastSuccessFetchTime = Date.now();
-        const HARD_RELOAD_INTERVAL = 30 * 60 * 1000; // Paksa bersihkan memori setiap 30 menit
+        let pollingTimer = null;
 
-        // Fungsi sistem untuk memaksa reload halaman penuh tanpa cache
-        function systemForceReload() {
-            const url = new URL(window.location.href);
-            url.searchParams.set('_sys_reload', Date.now());
-            window.location.replace(url.toString());
+        // Sama persis dengan getFieldValue di kode Vue Anda yang lancar
+        function getFieldValue(guest, fieldKey) {
+            if (guest[fieldKey] !== undefined && guest[fieldKey] !== null) {
+                return guest[fieldKey];
+            }
+            let innerData = guest.data;
+            if (typeof innerData === 'string') {
+                try { innerData = JSON.parse(innerData); } catch (e) { innerData = {}; }
+            }
+            if (innerData && innerData[fieldKey] !== undefined && innerData[fieldKey] !== null) {
+                return innerData[fieldKey];
+            }
+            return '-';
         }
 
-        function extractGuestsArray(obj) {
-            if (Array.isArray(obj)) return obj;
-            if (obj && typeof obj === 'object') {
-                for (let key in obj) { if (Array.isArray(obj[key])) return obj[key]; }
-                for (let key in obj) {
-                    if (obj[key] && typeof obj[key] === 'object') {
-                        for (let innerKey in obj[key]) { if (Array.isArray(obj[key][innerKey])) return obj[key][innerKey]; }
-                    }
-                }
+        // Sama persis dengan getFormattedTime di kode Vue Anda yang lancar
+        function getFormattedTime(guest) {
+            if (guest.updated_at) {
+                return guest.updated_at.split(' ')[1] || guest.updated_at;
             }
-            return null;
+            return '--:--';
         }
 
         async function fetchKedatanganList() {
-            if (isFetching) return;
-            isFetching = true;
-
-            let rawJson = null;
-            let errorMessage = "";
-
-            // Controller untuk mencegah fetch menggantung terlalu lama (batas 5 detik)
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-            try {
-                const directResponse = await fetch(`${API_DIRECT}?_t=${Date.now()}`, {
-                    cache: 'no-store',
-                    headers: {
-                        'Pragma': 'no-cache',
-                        'Cache-Control': 'no-cache'
-                    },
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-
-                if (directResponse.ok) {
-                    rawJson = await directResponse.json();
-                } else {
-                    errorMessage = `HTTP Error: ${directResponse.status}`;
-                }
-            } catch (err) {
-                clearTimeout(timeoutId);
-                errorMessage = err.name === 'AbortError' ? 'Request Timeout' : `Direct: ${err.message}`;
-            }
+            if (pollingTimer) clearTimeout(pollingTimer);
 
             const statusEl = document.getElementById('connection-status');
             const listContainer = document.getElementById('guest-list');
 
-            if (!rawJson) {
-                errorCount++;
-                statusEl.innerText = `Status: Gangguan Koneksi (${errorCount}/${MAX_ERRORS_BEFORE_RELOAD}) - Mencoba ulang...`;
-                
-                // Jika gagal terus sampai batas maksimal, paksa reload seluruh sistem
-                if (errorCount >= MAX_ERRORS_BEFORE_RELOAD) {
-                    statusEl.innerText = "Status: Memuat ulang sistem secara otomatis...";
-                    systemForceReload();
-                    return;
-                }
+            let data = null;
+            let errorMessage = "";
 
+            // 1. Coba fetch langsung persis seperti kode Vue Anda
+            let requestUrl = API_DIRECT;
+            if (useCorsProxy) {
+                requestUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_DIRECT);
+            }
+
+            try {
+                const res = await fetch(requestUrl);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                data = await res.json();
+            } catch (err) {
+                errorMessage = err.message;
+                // 2. Auto-Fallback: Jika gagal karena CORS, otomatis coba lewat CORS Proxy
+                if (!useCorsProxy) {
+                    try {
+                        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_DIRECT);
+                        const proxyRes = await fetch(proxyUrl);
+                        if (proxyRes.ok) {
+                            data = await proxyRes.json();
+                            useCorsProxy = true; // Gunakan proxy untuk request berikutnya
+                        }
+                    } catch (proxyErr) {
+                        errorMessage = proxyErr.message;
+                    }
+                }
+            }
+
+            if (!data || !data.guests) {
+                statusEl.innerText = `Status: Gagal Terhubung (${errorMessage})`;
                 if (lastDataHash === "") {
                     listContainer.innerHTML = `<div class="empty-state" style="color:#ef4444;">Gagal mengambil data dari API.<br><small>${errorMessage}</small></div>`;
                 }
-                isFetching = false;
+                pollingTimer = setTimeout(fetchKedatanganList, 2000);
                 return;
             }
 
-            // Reset indikator error jika berhasil terhubung
-            errorCount = 0;
-            lastSuccessFetchTime = Date.now();
-            statusEl.innerText = `Status: Terhubung (${new Date().toLocaleTimeString('id-ID')})`;
+            const guests = data.guests;
 
-            let guests = extractGuestsArray(rawJson);
+            // Filter tamu yang sudah scan menggunakan logika yang SAMA PERSIS dengan kode Vue Anda:
+            // g.arrival === true (untuk Gladi) atau g.souvenir === true (untuk Kedatangan)
+            let filteredGuests = guests.filter(g => {
+                // Cek apakah sudah scan (Gladi / Kedatangan)
+                const isScanned = (g[targetMode] === true) || (targetMode === 'arrival' && g.souvenir === true && !urlParams.has('mode'));
+                // Catatan: Prioritaskan g.arrival === true sesuai tabel Gladi di kode kedua Anda
+                const hasArrivalScan = g[targetMode] === true;
 
-            if (!guests) {
-                isFetching = false;
-                return;
-            }
+                if (!hasArrivalScan) return false;
 
-            let filteredGuests = guests.filter(guest => {
-                let innerData = guest.data;
-                if (typeof innerData === 'string') {
-                    try { innerData = JSON.parse(innerData); } catch (e) { innerData = {}; }
+                // Filter Jurusan jika ada ?jurusan=... di URL
+                if (targetJurusan !== "") {
+                    const j = String(getFieldValue(g, 'Jurusan')).toLowerCase();
+                    if (j !== targetJurusan) return false;
                 }
-                if (!innerData) innerData = {};
 
-                const scanTime = innerData.scan_kedatangan || guest.scan_kedatangan;
-                const hasScan = (scanTime !== null && scanTime !== undefined && scanTime !== "");
-                
+                // Filter Staff jika ada ?staff=... di URL
                 if (targetStaff !== "") {
-                    const scannedById = guest.scanned_by || innerData.scanned_by;
-                    const mappedStaffName = scannedById ? `staff${scannedById}` : "";
-                    const isMatch = mappedStaffName === targetStaff;
-                    return hasScan && isMatch;
+                    const scannedById = getFieldValue(g, 'scanned_by');
+                    const mappedStaffName = scannedById !== '-' ? `staff${scannedById}`.toLowerCase() : "";
+                    if (mappedStaffName !== targetStaff && String(scannedById).toLowerCase() !== targetStaff) {
+                        return false;
+                    }
                 }
-                
-                return hasScan;
+
+                return true;
             });
 
+            // Urutkan berdasarkan updated_at terbaru (persis seperti kode kedua Anda)
             filteredGuests.sort((a, b) => {
-                let innerA = typeof a.data === 'string' ? JSON.parse(a.data || '{}') : (a.data || {});
-                let innerB = typeof b.data === 'string' ? JSON.parse(b.data || '{}') : (b.data || {});
-                
-                const timeA = new Date(innerA.scan_kedatangan || a.scan_kedatangan || a.updated_at).getTime();
-                const timeB = new Date(innerB.scan_kedatangan || b.scan_kedatangan || b.updated_at).getTime();
-                return timeB - timeA;
+                const dateA = new Date(a.updated_at || 0).getTime();
+                const dateB = new Date(b.updated_at || 0).getTime();
+                return dateB - dateA;
             });
+
+            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Total Hadir: ${filteredGuests.length} / ${guests.length}`;
 
             const top8Guests = filteredGuests.slice(0, 8);
-            
-            // Deep Hash: Memantau perubahan ID, nama, maupun jam scan agar selalu ter-update
-            const currentHash = JSON.stringify(top8Guests);
+            const currentHash = JSON.stringify(top8Guests.map(g => `${g.id}_${g.updated_at}_${g.arrival}_${g.souvenir}`));
             
             if (currentHash !== lastDataHash) {
                 lastDataHash = currentHash;
                 renderList(top8Guests);
             }
 
-            isFetching = false;
+            // Polling ulang setiap 2 detik setelah request selesai (sama seperti pola setTimeout di kode Vue Anda)
+            pollingTimer = setTimeout(fetchKedatanganList, 2000);
         }
 
         function renderList(guests) {
@@ -257,7 +255,7 @@
                     <div class="empty-state">
                         Belum ada kedatangan yang dipindai<br>
                         <span style="font-size:16px; font-family:'Plus Jakarta Sans', sans-serif;">
-                            (Filter: ${targetStaff ? targetStaff.toUpperCase() : 'SEMUA STAFF'})
+                            (Filter: ${targetJurusan ? targetJurusan.toUpperCase() : (targetStaff ? targetStaff.toUpperCase() : 'SEMUA PESERTA')})
                         </span>
                     </div>`;
                 return;
@@ -267,23 +265,9 @@
             guests.forEach((guest, index) => {
                 const isLatest = index === 0;
                 
-                let innerData = guest.data;
-                if (typeof innerData === 'string') {
-                    try { innerData = JSON.parse(innerData); } catch (e) { innerData = {}; }
-                }
-                if (!innerData) innerData = {};
-
-                const guestName = innerData.Nama || innerData.nama || guest.name || guest.nama || 'Tanpa Nama';
-                
-                const rawTime = innerData.scan_kedatangan || guest.scan_kedatangan || guest.updated_at;
-                let timeFormatted = '--:--';
-                
-                if (rawTime) {
-                    const d = new Date(rawTime);
-                    if (!isNaN(d.getTime())) {
-                        timeFormatted = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    }
-                }
+                // Ambil Nama, Prodi/Jurusan menggunakan getFieldValue seperti di kode Vue
+                const guestName = getFieldValue(guest, 'Nama') !== '-' ? getFieldValue(guest, 'Nama') : (guest.name || 'Tanpa Nama');
+                const timeFormatted = getFormattedTime(guest);
 
                 htmlContent += `
                     <div class="guest-item ${isLatest ? 'latest' : ''}">
@@ -356,27 +340,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             updateFitModeLabel();
             autoFit();
-            fetchKedatanganList();
-            
-            // Interval utama penarikan data (1,5 detik)
-            setInterval(fetchKedatanganList, 1500); 
-
-            // Watchdog Timer: Cek setiap 5 detik, jika sistem macet > 15 detik, paksa reload
-            setInterval(() => {
-                if (Date.now() - lastSuccessFetchTime > 15000) {
-                    systemForceReload();
-                }
-            }, 5000);
-
-            // Hard Reload berkala setiap 30 menit untuk menjaga performa browser TV
-            setTimeout(() => {
-                systemForceReload();
-            }, HARD_RELOAD_INTERVAL);
-        });
-
-        // Jika koneksi internet TV baru menyala kembali, langsung tarik data/reload
-        window.addEventListener('online', () => {
-            errorCount = 0;
             fetchKedatanganList();
         });
 
