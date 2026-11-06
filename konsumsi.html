@@ -100,7 +100,6 @@
     </div>
 
     <script>
-        // Mengambil URL API dari pengaturan localStorage (jika pernah diset di dashboard) atau gunakan default
         let savedConfig = {};
         try {
             savedConfig = JSON.parse(localStorage.getItem('gh_monitor_config') || '{}');
@@ -113,7 +112,6 @@
         const targetStaff = urlParams.has('staff') ? urlParams.get('staff').toLowerCase().trim() : '';
         const targetJurusan = urlParams.has('jurusan') ? urlParams.get('jurusan').toLowerCase().trim() : '';
 
-        // Opsional: Bisa ubah judul lewat URL ?title=Kedatangan Wisudawan
         if (urlParams.has('title')) {
             document.getElementById('monitor-title').innerText = urlParams.get('title');
         }
@@ -127,7 +125,6 @@
         let lastDataHash = "";
         let pollingTimer = null;
 
-        // Sama persis dengan getFieldValue di kode Live Event Monitoring Center
         function getFieldValue(guest, fieldKey) {
             if (guest[fieldKey] !== undefined && guest[fieldKey] !== null) {
                 return guest[fieldKey];
@@ -142,16 +139,49 @@
             return '-';
         }
 
-        // Sama persis dengan getFormattedTime di kode Live Event Monitoring Center
+        // FUNGSI INTI: Parsing manual string updated_at (Format asli API: "YYYY-MM-DD HH:mm:ss")
+        function parseKedatanganInfo(guest) {
+            let rawStr = getFieldValue(guest, 'updated_at');
+
+            if (!rawStr || rawStr === '-') return null;
+
+            let rawDate = '2026-01-01';
+            let rawTime = rawStr;
+
+            if (String(rawStr).includes(' ')) {
+                let parts = String(rawStr).trim().split(' ');
+                rawDate = parts[0];
+                rawTime = parts[1];
+            }
+
+            let timeTokens = String(rawTime).split(':');
+            if (timeTokens.length < 2) return null;
+
+            let hStr = String(timeTokens[0]).padStart(2, '0');
+            let mStr = String(timeTokens[1]).padStart(2, '0');
+            let sStr = timeTokens.length > 2 ? String(timeTokens[2]).padStart(2, '0') : '00';
+
+            // Bersihkan format strip pada tanggal untuk digabungkan menjadi skor angka sorting
+            let dateClean = String(rawDate).replace(/\D/g, ''); 
+            if (dateClean.length !== 8) dateClean = "20260101"; 
+            
+            // Output Angka Skoring -> Misal: 20261105152235
+            let sortScore = parseInt(`${dateClean}${hStr}${mStr}${sStr}`, 10);
+
+            return {
+                sortScore: sortScore,
+                timeDisplay: `${hStr}:${mStr}:${sStr}`
+            };
+        }
+
         function getFormattedTime(guest) {
-            const customTime = getFieldValue(guest, 'scan_kepulangan');
-            if (customTime !== '-' && customTime !== '') {
-                return String(customTime).split(' ')[1] || String(customTime);
-            }
-            if (guest.updated_at) {
-                return guest.updated_at.split(' ')[1] || guest.updated_at;
-            }
-            return '--:--';
+            let info = parseKedatanganInfo(guest);
+            return info ? info.timeDisplay : '--:--';
+        }
+
+        // KUNCI UTAMA: Cek status "souvenir" = true
+        function isKedatanganScanned(g) {
+            return g.souvenir === true || g.souvenir === 1 || g.souvenir === "1" || String(g.souvenir).toLowerCase() === 'true';
         }
 
         async function fetchKedatanganList() {
@@ -174,7 +204,6 @@
                 data = await res.json();
             } catch (err) {
                 errorMessage = err.message;
-                // Auto-Fallback ke CORS Proxy jika akses langsung diblokir browser
                 if (!useCorsProxy) {
                     try {
                         const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_DIRECT);
@@ -200,20 +229,15 @@
 
             const guests = data.guests;
 
-            // Filter khusus halaman KEDATANGAN / KONSUMSI: membaca g.souvenir === true (sesuai dashboard)
+            // FILTER: Hanya peserta dengan `souvenir` yang dipindai
             let filteredGuests = guests.filter(g => {
-                const scanKepulangan = getFieldValue(g, 'scan_kepulangan');
-                const hasScan = (g.souvenir === true) || (scanKepulangan !== '-' && scanKepulangan !== '');
+                if (!isKedatanganScanned(g)) return false;
 
-                if (!hasScan) return false;
-
-                // Filter Jurusan jika ada ?jurusan=... di URL
                 if (targetJurusan !== "") {
                     const j = String(getFieldValue(g, 'Jurusan')).toLowerCase();
                     if (j !== targetJurusan) return false;
                 }
 
-                // Filter Staff jika ada ?staff=... di URL
                 if (targetStaff !== "") {
                     const scannedById = getFieldValue(g, 'scanned_by');
                     const mappedStaffName = scannedById !== '-' ? `staff${scannedById}`.toLowerCase() : "";
@@ -225,19 +249,25 @@
                 return true;
             });
 
-            // Urutkan berdasarkan waktu scan / updated_at terbaru
+            // SORTING: Membandingkan skor angka mutlak dari string `updated_at` (terbaru di atas)
             filteredGuests.sort((a, b) => {
-                const rawA = getFieldValue(a, 'scan_kepulangan') !== '-' ? getFieldValue(a, 'scan_kepulangan') : (a.updated_at || 0);
-                const rawB = getFieldValue(b, 'scan_kepulangan') !== '-' ? getFieldValue(b, 'scan_kepulangan') : (b.updated_at || 0);
-                const dateA = new Date(rawA).getTime() || 0;
-                const dateB = new Date(rawB).getTime() || 0;
-                return dateB - dateA;
+                const infoA = parseKedatanganInfo(a);
+                const infoB = parseKedatanganInfo(b);
+
+                const scoreA = infoA ? infoA.sortScore : 0;
+                const scoreB = infoB ? infoB.sortScore : 0;
+
+                return scoreB - scoreA;
             });
 
-            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Total Scan: ${filteredGuests.length} / ${guests.length}`;
+            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Kedatangan Hadir: ${filteredGuests.length} / ${guests.length}`;
 
+            // MEMANTAU HASIL: Menyimpan Hash State 8 Item Teratas
             const top8Guests = filteredGuests.slice(0, 8);
-            const currentHash = JSON.stringify(top8Guests.map(g => `${g.id}_${g.updated_at}_${g.souvenir}`));
+            const currentHash = JSON.stringify(top8Guests.map(g => {
+                const info = parseKedatanganInfo(g);
+                return `${g.id}_${info ? info.sortScore : '0'}`;
+            }));
             
             if (currentHash !== lastDataHash) {
                 lastDataHash = currentHash;
