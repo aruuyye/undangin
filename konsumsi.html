@@ -307,11 +307,13 @@
                 
                 const guestName = getFieldValue(guest, 'Nama') !== '-' ? getFieldValue(guest, 'Nama') : (guest.name || 'Tanpa Nama');
                 const timeFormatted = getFormattedTime(guest);
+                const Nokur = getFieldValue(guest, 'Nokur') !== '-' ? getFieldValue(guest, 'Nokur') : (getFieldValue(guest, 'No Kursi') !== '-' ? getFieldValue(guest, 'No Kursi') : '-');
+                const jurusan = getFieldValue(guest, 'Jurusan') !== '-' ? getFieldValue(guest, 'Jurusan') : '-';
 
                 htmlContent += `
                     <div class="guest-item ${isLatest ? 'latest' : ''}">
-                        <div class="guest-name">${guestName}</div>
-                        <div class="guest-time">${timeFormatted}</div>
+                        <div class="guest-name">${Nokur} - ${guestName}</div>
+                        <div class="guest-time">${jurusan} - ${timeFormatted}</div>
                     </div>
                 `;
             });
