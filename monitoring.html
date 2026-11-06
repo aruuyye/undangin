@@ -163,12 +163,12 @@
             </div>
         </div>
 
-        <!-- Tabel Kecil Rekapitulasi Per Jurusan (Collapse Default Hidden) -->
+        <!-- Tabel Rekapitulasi Per Jurusan (Keseluruhan) -->
         <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 shadow-sm">
             <div class="flex items-center justify-between cursor-pointer select-none" @click="showJurusanTable = !showJurusanTable">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-chart-bar text-blue-600 text-sm"></i>
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Rekapitulasi Data Per Jurusan</h3>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Rekapitulasi Data Per Jurusan (Semua Sesi)</h3>
                     <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-mono font-bold">
                         {{ jurusanSummary.length }} Jurusan
                     </span>
@@ -186,14 +186,14 @@
                         <i class="fas fa-sync-alt mr-1"></i> Tampilkan Semua Jurusan
                     </button>
                 </div>
-                <table class="w-full text-left border-collapse bg-white rounded-lg overflow-hidden border border-slate-200">
+                <table class="w-full text-left border-collapse bg-white rounded-lg overflow-hidden border border-slate-200 table-fixed">
                     <thead>
                         <tr class="bg-slate-100 text-slate-600 text-[11px] border-b border-slate-200">
-                            <th class="p-2.5">JURUSAN</th>
-                            <th class="p-2.5 text-center">TOTAL TAMU</th>
-                            <th class="p-2.5 text-center text-indigo-700">TOTAL KONFIRMASI RSVP</th>
-                            <th class="p-2.5 text-center text-emerald-700">TOTAL GLADI</th>
-                            <th class="p-2.5 text-center text-amber-600">TOTAL KEDATANGAN</th>
+                            <th class="p-2.5 w-1/3">JURUSAN</th>
+                            <th class="p-2.5 text-center w-1/6">TOTAL TAMU</th>
+                            <th class="p-2.5 text-center w-1/6 text-indigo-700">RSVP</th>
+                            <th class="p-2.5 text-center w-1/6 text-emerald-700">GLADI</th>
+                            <th class="p-2.5 text-center w-1/6 text-amber-600">KEDATANGAN</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-xs">
@@ -206,14 +206,23 @@
                                 selectedJurusanFilter.toLowerCase() === j.name.toLowerCase() ? 'bg-blue-50/80 font-bold' : 'hover:bg-slate-50'
                             ]"
                         >
-                            <td class="p-2.5 font-bold text-blue-600 hover:underline flex items-center gap-1.5">
-                                <i class="fas fa-graduation-cap text-[10px]"></i> {{ j.name }}
+                            <td class="p-2.5 font-bold text-blue-600 hover:underline truncate">
+                                <i class="fas fa-graduation-cap text-[10px] mr-1"></i>{{ j.name }}
                                 <span v-if="selectedJurusanFilter.toLowerCase() === j.name.toLowerCase()" class="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded ml-1">Aktif</span>
                             </td>
-                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.totalTamu }}</td>
-                            <td class="p-2.5 text-center font-mono text-indigo-700 font-bold bg-indigo-50/30">{{ j.totalRsvp }}</td>
-                            <td class="p-2.5 text-center font-mono text-emerald-700 font-bold bg-emerald-50/30">{{ j.totalGladi }}</td>
-                            <td class="p-2.5 text-center font-mono text-amber-600 font-bold bg-amber-50/30">{{ j.totalKedatangan }}</td>
+                            <td class="p-2.5 text-center font-mono font-bold text-slate-800 align-middle">{{ j.totalTamu }}</td>
+                            <td class="p-2.5 text-center font-mono bg-indigo-50/30 align-middle">
+                                <div class="font-bold text-indigo-700 text-xs">{{ j.totalRsvp }} <span class="text-[9px] text-indigo-500 font-normal">Sudah</span></div>
+                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ j.totalBelumRsvp }} <span class="text-[9px]">Belum</span></div>
+                            </td>
+                            <td class="p-2.5 text-center font-mono bg-emerald-50/30 align-middle">
+                                <div class="font-bold text-emerald-700 text-xs">{{ j.totalGladi }} <span class="text-[9px] text-emerald-500 font-normal">Sudah</span></div>
+                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ j.totalBelumGladi }} <span class="text-[9px]">Belum</span></div>
+                            </td>
+                            <td class="p-2.5 text-center font-mono bg-amber-50/30 align-middle">
+                                <div class="font-bold text-amber-600 text-xs">{{ j.totalKedatangan }} <span class="text-[9px] text-amber-500 font-normal">Sudah</span></div>
+                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ j.totalBelumKedatangan }} <span class="text-[9px]">Belum</span></div>
+                            </td>
                         </tr>
                         <tr v-if="jurusanSummary.length === 0">
                             <td colspan="5" class="p-4 text-center text-slate-400 italic">Belum ada data jurusan</td>
@@ -223,9 +232,18 @@
                         <tr>
                             <td class="p-2.5 text-slate-700">TOTAL KESELURUHAN</td>
                             <td class="p-2.5 text-center font-mono text-slate-900">{{ guests.length }}</td>
-                            <td class="p-2.5 text-center font-mono text-indigo-700">{{ guests.filter(g => g.rsvp === true).length }}</td>
-                            <td class="p-2.5 text-center font-mono text-emerald-700">{{ guests.filter(g => g.arrival === true).length }}</td>
-                            <td class="p-2.5 text-center font-mono text-amber-600">{{ guests.filter(g => g.souvenir === true).length }}</td>
+                            <td class="p-2.5 text-center font-mono">
+                                <span class="text-indigo-700">{{ guests.filter(g => g.rsvp === true).length }} OK</span> / 
+                                <span class="text-slate-400 text-[10px]">{{ guests.filter(g => !g.rsvp).length }} Belum</span>
+                            </td>
+                            <td class="p-2.5 text-center font-mono">
+                                <span class="text-emerald-700">{{ guests.filter(g => g.arrival === true).length }} OK</span> / 
+                                <span class="text-slate-400 text-[10px]">{{ guests.filter(g => !g.arrival).length }} Belum</span>
+                            </td>
+                            <td class="p-2.5 text-center font-mono">
+                                <span class="text-amber-600">{{ guests.filter(g => g.souvenir === true).length }} OK</span> / 
+                                <span class="text-slate-400 text-[10px]">{{ guests.filter(g => !g.souvenir).length }} Belum</span>
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
@@ -255,14 +273,14 @@
                         <i class="fas fa-sync-alt mr-1"></i> Tampilkan Semua Jurusan
                     </button>
                 </div>
-                <table class="w-full text-left border-collapse bg-white rounded-lg overflow-hidden border border-slate-200">
+                <table class="w-full text-left border-collapse bg-white rounded-lg overflow-hidden border border-slate-200 table-fixed">
                     <thead>
                         <tr class="bg-indigo-50/50 text-slate-600 text-[11px] border-b border-slate-200">
-                            <th class="p-2.5">JURUSAN (SESI 1)</th>
-                            <th class="p-2.5 text-center">TOTAL TAMU</th>
-                            <th class="p-2.5 text-center text-indigo-700">TOTAL KONFIRMASI RSVP</th>
-                            <th class="p-2.5 text-center text-emerald-700">TOTAL GLADI</th>
-                            <th class="p-2.5 text-center text-amber-600">TOTAL KEDATANGAN</th>
+                            <th class="p-2.5 w-1/3">JURUSAN (SESI 1)</th>
+                            <th class="p-2.5 text-center w-1/6">TOTAL TAMU</th>
+                            <th class="p-2.5 text-center w-1/6 text-indigo-700">RSVP</th>
+                            <th class="p-2.5 text-center w-1/6 text-emerald-700">GLADI</th>
+                            <th class="p-2.5 text-center w-1/6 text-amber-600">KEDATANGAN</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-xs">
@@ -275,14 +293,23 @@
                                 selectedJurusanFilter.toLowerCase() === j.name.toLowerCase() ? 'bg-blue-50/80 font-bold' : 'hover:bg-slate-50'
                             ]"
                         >
-                            <td class="p-2.5 font-bold text-blue-600 hover:underline flex items-center gap-1.5">
-                                <i class="fas fa-graduation-cap text-[10px]"></i> {{ j.name }}
+                            <td class="p-2.5 font-bold text-blue-600 hover:underline truncate">
+                                <i class="fas fa-graduation-cap text-[10px] mr-1"></i>{{ j.name }}
                                 <span v-if="selectedJurusanFilter.toLowerCase() === j.name.toLowerCase()" class="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded ml-1">Aktif</span>
                             </td>
-                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.totalTamu }}</td>
-                            <td class="p-2.5 text-center font-mono text-indigo-700 font-bold bg-indigo-50/30">{{ j.totalRsvp }}</td>
-                            <td class="p-2.5 text-center font-mono text-emerald-700 font-bold bg-emerald-50/30">{{ j.totalGladi }}</td>
-                            <td class="p-2.5 text-center font-mono text-amber-600 font-bold bg-amber-50/30">{{ j.totalKedatangan }}</td>
+                            <td class="p-2.5 text-center font-mono font-bold text-slate-800 align-middle">{{ j.totalTamu }}</td>
+                            <td class="p-2.5 text-center font-mono bg-indigo-50/30 align-middle">
+                                <div class="font-bold text-indigo-700 text-xs">{{ j.totalRsvp }} <span class="text-[9px] text-indigo-500 font-normal">Sudah</span></div>
+                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ j.totalBelumRsvp }} <span class="text-[9px]">Belum</span></div>
+                            </td>
+                            <td class="p-2.5 text-center font-mono bg-emerald-50/30 align-middle">
+                                <div class="font-bold text-emerald-700 text-xs">{{ j.totalGladi }} <span class="text-[9px] text-emerald-500 font-normal">Sudah</span></div>
+                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ j.totalBelumGladi }} <span class="text-[9px]">Belum</span></div>
+                            </td>
+                            <td class="p-2.5 text-center font-mono bg-amber-50/30 align-middle">
+                                <div class="font-bold text-amber-600 text-xs">{{ j.totalKedatangan }} <span class="text-[9px] text-amber-500 font-normal">Sudah</span></div>
+                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ j.totalBelumKedatangan }} <span class="text-[9px]">Belum</span></div>
+                            </td>
                         </tr>
                         <tr v-if="sesi1Summary.length === 0">
                             <td colspan="5" class="p-4 text-center text-slate-400 italic">Belum ada data Sesi 1</td>
@@ -290,11 +317,20 @@
                     </tbody>
                     <tfoot v-if="sesi1Summary.length > 0" class="bg-indigo-50/50 font-bold text-xs border-t border-slate-200">
                         <tr>
-                            <td class="p-2.5 text-slate-700">TOTAL KESELURUHAN SESI 1</td>
+                            <td class="p-2.5 text-slate-700">TOTAL SESI 1</td>
                             <td class="p-2.5 text-center font-mono text-slate-900">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalTamu, 0) }}</td>
-                            <td class="p-2.5 text-center font-mono text-indigo-700">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalRsvp, 0) }}</td>
-                            <td class="p-2.5 text-center font-mono text-emerald-700">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalGladi, 0) }}</td>
-                            <td class="p-2.5 text-center font-mono text-amber-600">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalKedatangan, 0) }}</td>
+                            <td class="p-2.5 text-center font-mono">
+                                <span class="text-indigo-700">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalRsvp, 0) }} OK</span> / 
+                                <span class="text-slate-400 text-[10px]">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalBelumRsvp, 0) }} Belum</span>
+                            </td>
+                            <td class="p-2.5 text-center font-mono">
+                                <span class="text-emerald-700">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalGladi, 0) }} OK</span> / 
+                                <span class="text-slate-400 text-[10px]">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalBelumGladi, 0) }} Belum</span>
+                            </td>
+                            <td class="p-2.5 text-center font-mono">
+                                <span class="text-amber-600">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalKedatangan, 0) }} OK</span> / 
+                                <span class="text-slate-400 text-[10px]">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalBelumKedatangan, 0) }} Belum</span>
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
@@ -324,14 +360,14 @@
                         <i class="fas fa-sync-alt mr-1"></i> Tampilkan Semua Jurusan
                     </button>
                 </div>
-                <table class="w-full text-left border-collapse bg-white rounded-lg overflow-hidden border border-slate-200">
+                <table class="w-full text-left border-collapse bg-white rounded-lg overflow-hidden border border-slate-200 table-fixed">
                     <thead>
                         <tr class="bg-amber-50/50 text-slate-600 text-[11px] border-b border-slate-200">
-                            <th class="p-2.5">JURUSAN (SESI 2)</th>
-                            <th class="p-2.5 text-center">TOTAL TAMU</th>
-                            <th class="p-2.5 text-center text-indigo-700">TOTAL KONFIRMASI RSVP</th>
-                            <th class="p-2.5 text-center text-emerald-700">TOTAL GLADI</th>
-                            <th class="p-2.5 text-center text-amber-600">TOTAL KEDATANGAN</th>
+                            <th class="p-2.5 w-1/3">JURUSAN (SESI 2)</th>
+                            <th class="p-2.5 text-center w-1/6">TOTAL TAMU</th>
+                            <th class="p-2.5 text-center w-1/6 text-indigo-700">RSVP</th>
+                            <th class="p-2.5 text-center w-1/6 text-emerald-700">GLADI</th>
+                            <th class="p-2.5 text-center w-1/6 text-amber-600">KEDATANGAN</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-xs">
@@ -344,14 +380,23 @@
                                 selectedJurusanFilter.toLowerCase() === j.name.toLowerCase() ? 'bg-blue-50/80 font-bold' : 'hover:bg-slate-50'
                             ]"
                         >
-                            <td class="p-2.5 font-bold text-blue-600 hover:underline flex items-center gap-1.5">
-                                <i class="fas fa-graduation-cap text-[10px]"></i> {{ j.name }}
+                            <td class="p-2.5 font-bold text-blue-600 hover:underline truncate">
+                                <i class="fas fa-graduation-cap text-[10px] mr-1"></i>{{ j.name }}
                                 <span v-if="selectedJurusanFilter.toLowerCase() === j.name.toLowerCase()" class="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded ml-1">Aktif</span>
                             </td>
-                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.totalTamu }}</td>
-                            <td class="p-2.5 text-center font-mono text-indigo-700 font-bold bg-indigo-50/30">{{ j.totalRsvp }}</td>
-                            <td class="p-2.5 text-center font-mono text-emerald-700 font-bold bg-emerald-50/30">{{ j.totalGladi }}</td>
-                            <td class="p-2.5 text-center font-mono text-amber-600 font-bold bg-amber-50/30">{{ j.totalKedatangan }}</td>
+                            <td class="p-2.5 text-center font-mono font-bold text-slate-800 align-middle">{{ j.totalTamu }}</td>
+                            <td class="p-2.5 text-center font-mono bg-indigo-50/30 align-middle">
+                                <div class="font-bold text-indigo-700 text-xs">{{ j.totalRsvp }} <span class="text-[9px] text-indigo-500 font-normal">Sudah</span></div>
+                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ j.totalBelumRsvp }} <span class="text-[9px]">Belum</span></div>
+                            </td>
+                            <td class="p-2.5 text-center font-mono bg-emerald-50/30 align-middle">
+                                <div class="font-bold text-emerald-700 text-xs">{{ j.totalGladi }} <span class="text-[9px] text-emerald-500 font-normal">Sudah</span></div>
+                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ j.totalBelumGladi }} <span class="text-[9px]">Belum</span></div>
+                            </td>
+                            <td class="p-2.5 text-center font-mono bg-amber-50/30 align-middle">
+                                <div class="font-bold text-amber-600 text-xs">{{ j.totalKedatangan }} <span class="text-[9px] text-amber-500 font-normal">Sudah</span></div>
+                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ j.totalBelumKedatangan }} <span class="text-[9px]">Belum</span></div>
+                            </td>
                         </tr>
                         <tr v-if="sesi2Summary.length === 0">
                             <td colspan="5" class="p-4 text-center text-slate-400 italic">Belum ada data Sesi 2</td>
@@ -359,11 +404,20 @@
                     </tbody>
                     <tfoot v-if="sesi2Summary.length > 0" class="bg-amber-50/50 font-bold text-xs border-t border-slate-200">
                         <tr>
-                            <td class="p-2.5 text-slate-700">TOTAL KESELURUHAN SESI 2</td>
+                            <td class="p-2.5 text-slate-700">TOTAL SESI 2</td>
                             <td class="p-2.5 text-center font-mono text-slate-900">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalTamu, 0) }}</td>
-                            <td class="p-2.5 text-center font-mono text-indigo-700">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalRsvp, 0) }}</td>
-                            <td class="p-2.5 text-center font-mono text-emerald-700">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalGladi, 0) }}</td>
-                            <td class="p-2.5 text-center font-mono text-amber-600">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalKedatangan, 0) }}</td>
+                            <td class="p-2.5 text-center font-mono">
+                                <span class="text-indigo-700">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalRsvp, 0) }} OK</span> / 
+                                <span class="text-slate-400 text-[10px]">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalBelumRsvp, 0) }} Belum</span>
+                            </td>
+                            <td class="p-2.5 text-center font-mono">
+                                <span class="text-emerald-700">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalGladi, 0) }} OK</span> / 
+                                <span class="text-slate-400 text-[10px]">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalBelumGladi, 0) }} Belum</span>
+                            </td>
+                            <td class="p-2.5 text-center font-mono">
+                                <span class="text-amber-600">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalKedatangan, 0) }} OK</span> / 
+                                <span class="text-slate-400 text-[10px]">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalBelumKedatangan, 0) }} Belum</span>
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
@@ -548,7 +602,6 @@
                     availableFields: [],
                     visibleFields: ['Nama', 'Nim', 'Prodi', 'Jurusan', 'Sesi', 'Nokur'],
                     
-                    // Bagian collapse (tersembunyi) saat awal muat halaman
                     showFieldConfig: false, 
                     showJurusanTable: false, 
                     showSesi1Table: false,
@@ -556,7 +609,6 @@
                     
                     selectedJurusanFilter: '', 
                     
-                    // Default langsung menampilkan yang 'done' (Sudah Konfirmasi / Sudah Scan)
                     statusFilter: { rsvp: 'done', arrival: 'done', souvenir: 'done' },
                     searchQuery: { rsvp: '', arrival: '', souvenir: '' }
                 }; 
@@ -607,15 +659,18 @@
                                 name: jName, 
                                 totalTamu: 0, 
                                 totalRsvp: 0, 
+                                totalBelumRsvp: 0,
                                 totalGladi: 0, 
-                                totalKedatangan: 0 
+                                totalBelumGladi: 0,
+                                totalKedatangan: 0,
+                                totalBelumKedatangan: 0
                             };
                         }
 
                         map[jName].totalTamu++;
-                        if (g.rsvp === true) map[jName].totalRsvp++;
-                        if (g.arrival === true) map[jName].totalGladi++;
-                        if (g.souvenir === true) map[jName].totalKedatangan++;
+                        if (g.rsvp === true) map[jName].totalRsvp++; else map[jName].totalBelumRsvp++;
+                        if (g.arrival === true) map[jName].totalGladi++; else map[jName].totalBelumGladi++;
+                        if (g.souvenir === true) map[jName].totalKedatangan++; else map[jName].totalBelumKedatangan++;
                     });
                     return Object.values(map).sort((a, b) => b.totalTamu - a.totalTamu);
                 },
@@ -653,7 +708,6 @@
                 getList(type) { 
                     let filtered = [...this.getBaseFilteredGuests()];
                     
-                    // Filter berdasarkan tab status ('done' untuk Sudah, 'pending' untuk Belum)
                     const currentFilter = this.statusFilter[type];
                     if (currentFilter === 'done') {
                         filtered = filtered.filter(g => g[type] === true);
@@ -661,7 +715,6 @@
                         filtered = filtered.filter(g => !g[type]);
                     }
 
-                    // Filter berdasarkan input pencarian
                     const query = this.searchQuery[type].trim().toLowerCase();
                     if (query) {
                         filtered = filtered.filter(g => {
@@ -673,7 +726,6 @@
                         });
                     }
 
-                    // Urutkan berdasarkan waktu update terbaru
                     filtered.sort((a, b) => {
                         const dateA = new Date(a.updated_at || 0).getTime();
                         const dateB = new Date(b.updated_at || 0).getTime();
