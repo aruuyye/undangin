@@ -249,6 +249,19 @@
                 return true;
             });
 
+            // Hitung Jumlah Sesi 1 dan Sesi 2 yang Hadir
+            let hadirSesi1 = 0;
+            let hadirSesi2 = 0;
+            
+            filteredGuests.forEach(g => {
+                let sesiVal = String(getFieldValue(g, 'Sesi')).toLowerCase().trim();
+                if (sesiVal === '1' || sesiVal === 'sesi 1') {
+                    hadirSesi1++;
+                } else if (sesiVal === '2' || sesiVal === 'sesi 2') {
+                    hadirSesi2++;
+                }
+            });
+
             // Sorting murni menggunakan skor angka dari tanggal + waktu asli (terbaru di atas)
             filteredGuests.sort((a, b) => {
                 const infoA = parseGladiManualInfo(a);
@@ -260,7 +273,8 @@
                 return scoreB - scoreA; 
             });
 
-            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Gladi Hadir: ${filteredGuests.length} / ${guests.length}`;
+            // Status breakdown Sesi 1 & 2
+            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Gladi Hadir: ${filteredGuests.length} / ${guests.length} (Sesi 1: ${hadirSesi1} | Sesi 2: ${hadirSesi2})`;
 
             const top8Guests = filteredGuests.slice(0, 8);
             const currentHash = JSON.stringify(top8Guests.map(g => {
