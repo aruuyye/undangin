@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arrival Monitor - Kedatangan Polije</title>
+    <title>Arrival Monitor - Polije</title>
     <link rel="icon" type="image/png" href="https://undangin.polije.ac.id/images/favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -64,7 +64,7 @@
         <div id="visual-monitor-canvas" data-width="1440" data-height="960">
             <div class="header-section">
                 <img src="https://kui.polije.ac.id/files/profile/Profile-Kantor%20Internasional%20Politeknik%20Negeri%20Jember.webp" alt="Logo Polije">
-                <h1 id="monitor-title">Kedatangan Gladi Wisudawan</h1>
+                <h1 id="monitor-title">Pengambilan Konsumsi</h1>
                 <div class="divider-gold"></div>
                 <h2>Wisuda Ke-50 Politeknik Negeri Jember</h2>
             </div>
@@ -77,7 +77,7 @@
     <!-- STAFF / JURUSAN BADGE -->
     <div style="position: fixed; top: 1.5rem; right: 1.5rem; z-index: 99998; background: rgba(3, 10, 26, 0.8); border: 1px solid #38bdf8; color: #38bdf8; padding: 0.6rem 1.25rem; border-radius: 99px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; backdrop-filter: blur(5px);">
         <span style="width: 10px; height: 10px; background: #38bdf8; border-radius: 50%;"></span>
-        <span id="staff-badge">FILTER: ALL</span>
+        <span id="staff-badge">STAFF: ALL</span>
     </div>
 
     <!-- CONNECTION STATUS INDICATOR -->
@@ -112,11 +112,10 @@
         const urlParams = new URLSearchParams(window.location.search);
         const targetStaff = urlParams.has('staff') ? urlParams.get('staff').toLowerCase().trim() : '';
         const targetJurusan = urlParams.has('jurusan') ? urlParams.get('jurusan').toLowerCase().trim() : '';
-        // Mode: 'gladi' (arrival === true) atau 'kedatangan' (souvenir === true)
-        const targetMode = urlParams.get('mode') === 'kedatangan' ? 'souvenir' : 'arrival';
 
-        if (targetMode === 'souvenir') {
-            document.getElementById('monitor-title').innerText = 'Kedatangan Wisudawan';
+        // Opsional: Bisa ubah judul lewat URL ?title=Kedatangan Wisudawan
+        if (urlParams.has('title')) {
+            document.getElementById('monitor-title').innerText = urlParams.get('title');
         }
 
         if (targetJurusan) {
@@ -128,7 +127,7 @@
         let lastDataHash = "";
         let pollingTimer = null;
 
-        // Sama persis dengan getFieldValue di kode Vue Anda yang lancar
+        // Sama persis dengan getFieldValue di kode Live Event Monitoring Center
         function getFieldValue(guest, fieldKey) {
             if (guest[fieldKey] !== undefined && guest[fieldKey] !== null) {
                 return guest[fieldKey];
@@ -143,8 +142,12 @@
             return '-';
         }
 
-        // Sama persis dengan getFormattedTime di kode Vue Anda yang lancar
+        // Sama persis dengan getFormattedTime di kode Live Event Monitoring Center
         function getFormattedTime(guest) {
+            const customTime = getFieldValue(guest, 'scan_kepulangan');
+            if (customTime !== '-' && customTime !== '') {
+                return String(customTime).split(' ')[1] || String(customTime);
+            }
             if (guest.updated_at) {
                 return guest.updated_at.split(' ')[1] || guest.updated_at;
             }
@@ -160,7 +163,6 @@
             let data = null;
             let errorMessage = "";
 
-            // 1. Coba fetch langsung persis seperti kode Vue Anda
             let requestUrl = API_DIRECT;
             if (useCorsProxy) {
                 requestUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_DIRECT);
@@ -172,14 +174,14 @@
                 data = await res.json();
             } catch (err) {
                 errorMessage = err.message;
-                // 2. Auto-Fallback: Jika gagal karena CORS, otomatis coba lewat CORS Proxy
+                // Auto-Fallback ke CORS Proxy jika akses langsung diblokir browser
                 if (!useCorsProxy) {
                     try {
                         const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(API_DIRECT);
                         const proxyRes = await fetch(proxyUrl);
                         if (proxyRes.ok) {
                             data = await proxyRes.json();
-                            useCorsProxy = true; // Gunakan proxy untuk request berikutnya
+                            useCorsProxy = true;
                         }
                     } catch (proxyErr) {
                         errorMessage = proxyErr.message;
@@ -198,15 +200,12 @@
 
             const guests = data.guests;
 
-            // Filter tamu yang sudah scan menggunakan logika yang SAMA PERSIS dengan kode Vue Anda:
-            // g.arrival === true (untuk Gladi) atau g.souvenir === true (untuk Kedatangan)
+            // Filter khusus halaman KEDATANGAN / KONSUMSI: membaca g.souvenir === true (sesuai dashboard)
             let filteredGuests = guests.filter(g => {
-                // Cek apakah sudah scan (Gladi / Kedatangan)
-                const isScanned = (g[targetMode] === true) || (targetMode === 'arrival' && g.souvenir === true && !urlParams.has('mode'));
-                // Catatan: Prioritaskan g.arrival === true sesuai tabel Gladi di kode kedua Anda
-                const hasArrivalScan = g[targetMode] === true;
+                const scanKepulangan = getFieldValue(g, 'scan_kepulangan');
+                const hasScan = (g.souvenir === true) || (scanKepulangan !== '-' && scanKepulangan !== '');
 
-                if (!hasArrivalScan) return false;
+                if (!hasScan) return false;
 
                 // Filter Jurusan jika ada ?jurusan=... di URL
                 if (targetJurusan !== "") {
@@ -226,24 +225,25 @@
                 return true;
             });
 
-            // Urutkan berdasarkan updated_at terbaru (persis seperti kode kedua Anda)
+            // Urutkan berdasarkan waktu scan / updated_at terbaru
             filteredGuests.sort((a, b) => {
-                const dateA = new Date(a.updated_at || 0).getTime();
-                const dateB = new Date(b.updated_at || 0).getTime();
+                const rawA = getFieldValue(a, 'scan_kepulangan') !== '-' ? getFieldValue(a, 'scan_kepulangan') : (a.updated_at || 0);
+                const rawB = getFieldValue(b, 'scan_kepulangan') !== '-' ? getFieldValue(b, 'scan_kepulangan') : (b.updated_at || 0);
+                const dateA = new Date(rawA).getTime() || 0;
+                const dateB = new Date(rawB).getTime() || 0;
                 return dateB - dateA;
             });
 
-            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Total Hadir: ${filteredGuests.length} / ${guests.length}`;
+            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Total Scan: ${filteredGuests.length} / ${guests.length}`;
 
             const top8Guests = filteredGuests.slice(0, 8);
-            const currentHash = JSON.stringify(top8Guests.map(g => `${g.id}_${g.updated_at}_${g.arrival}_${g.souvenir}`));
+            const currentHash = JSON.stringify(top8Guests.map(g => `${g.id}_${g.updated_at}_${g.souvenir}`));
             
             if (currentHash !== lastDataHash) {
                 lastDataHash = currentHash;
                 renderList(top8Guests);
             }
 
-            // Polling ulang setiap 2 detik setelah request selesai (sama seperti pola setTimeout di kode Vue Anda)
             pollingTimer = setTimeout(fetchKedatanganList, 2000);
         }
 
@@ -255,7 +255,7 @@
                     <div class="empty-state">
                         Belum ada kedatangan yang dipindai<br>
                         <span style="font-size:16px; font-family:'Plus Jakarta Sans', sans-serif;">
-                            (Filter: ${targetJurusan ? targetJurusan.toUpperCase() : (targetStaff ? targetStaff.toUpperCase() : 'SEMUA PESERTA')})
+                            (Filter: ${targetJurusan ? targetJurusan.toUpperCase() : (targetStaff ? targetStaff.toUpperCase() : 'SEMUA STAFF')})
                         </span>
                     </div>`;
                 return;
@@ -265,7 +265,6 @@
             guests.forEach((guest, index) => {
                 const isLatest = index === 0;
                 
-                // Ambil Nama, Prodi/Jurusan menggunakan getFieldValue seperti di kode Vue
                 const guestName = getFieldValue(guest, 'Nama') !== '-' ? getFieldValue(guest, 'Nama') : (guest.name || 'Tanpa Nama');
                 const timeFormatted = getFormattedTime(guest);
 
