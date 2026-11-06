@@ -135,14 +135,52 @@
             return '-';
         }
 
-        function getFormattedTime(guest) {
-            if (guest.updated_at) {
-                return guest.updated_at.split(' ')[1] || guest.updated_at;
+        // FUNGSI INTI: Membaca waktu asli (TANPA tambahan 1 jam)
+        function parseGladiManualInfo(guest) {
+            let rawTime = getFieldValue(guest, 'arrival_time');
+            let rawDate = getFieldValue(guest, 'arrival_date');
+
+            if (!rawTime || rawTime === '-') return null;
+
+            if (String(rawTime).includes(' ')) {
+                let parts = String(rawTime).trim().split(' ');
+                rawDate = parts[0];
+                rawTime = parts[1];
             }
-            return '--:--';
+
+            if (!rawDate || rawDate === '-') {
+                rawDate = '2026-01-01'; 
+            }
+
+            let timeTokens = String(rawTime).split(':');
+            if (timeTokens.length < 2) return null;
+
+            let h = parseInt(timeTokens[0], 10) || 0;
+            let m = parseInt(timeTokens[1], 10) || 0;
+            let s = timeTokens.length > 2 ? parseInt(timeTokens[2], 10) : 0;
+
+            let hStr = String(h).padStart(2, '0');
+            let mStr = String(m).padStart(2, '0');
+            let sStr = String(s).padStart(2, '0');
+
+            // Membersihkan tanda minus "-" pada tanggal: "2026-11-05" jadi "20261105"
+            let dateClean = String(rawDate).replace(/\D/g, ''); 
+            if (dateClean.length !== 8) dateClean = "20260101"; 
+            
+            // Gabungkan Tanggal + Jam jadi 1 angka utuh (Format YYYYMMDDHHmmss) untuk sorting yang akurat
+            let sortScore = parseInt(`${dateClean}${hStr}${mStr}${sStr}`, 10);
+
+            return {
+                sortScore: sortScore,
+                timeDisplay: `${hStr}:${mStr}:${sStr}`
+            };
         }
 
-        // Fungsi Helper untuk Cek Apakah Sudah Scan Gladi ("arrival": true)
+        function getFormattedTime(guest) {
+            let info = parseGladiManualInfo(guest);
+            return info ? info.timeDisplay : '--:--';
+        }
+
         function isGladiScanned(g) {
             return g.arrival === true || g.arrival === 1 || g.arrival === "1" || String(g.arrival).toLowerCase() === 'true';
         }
@@ -192,17 +230,14 @@
 
             const guests = data.guests;
 
-            // KUNCI UTAMA: Filter HANYA peserta yang status gladi-nya true ("arrival": true)
             let filteredGuests = guests.filter(g => {
                 if (!isGladiScanned(g)) return false;
 
-                // Filter Jurusan jika ada parameter ?jurusan=...
                 if (targetJurusan !== "") {
                     const j = String(getFieldValue(g, 'Jurusan')).toLowerCase();
                     if (j !== targetJurusan) return false;
                 }
 
-                // Filter Staff jika ada parameter ?staff=...
                 if (targetStaff !== "") {
                     const scannedById = getFieldValue(g, 'scanned_by');
                     const mappedStaffName = scannedById !== '-' ? `staff${scannedById}`.toLowerCase() : "";
@@ -214,17 +249,24 @@
                 return true;
             });
 
-            // Urutkan berdasarkan updated_at terbaru
+            // Sorting murni menggunakan skor angka dari tanggal + waktu asli (terbaru di atas)
             filteredGuests.sort((a, b) => {
-                const dateA = new Date(a.updated_at || 0).getTime();
-                const dateB = new Date(b.updated_at || 0).getTime();
-                return dateB - dateA;
+                const infoA = parseGladiManualInfo(a);
+                const infoB = parseGladiManualInfo(b);
+
+                const scoreA = infoA ? infoA.sortScore : 0;
+                const scoreB = infoB ? infoB.sortScore : 0;
+
+                return scoreB - scoreA; 
             });
 
             statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Gladi Hadir: ${filteredGuests.length} / ${guests.length}`;
 
             const top8Guests = filteredGuests.slice(0, 8);
-            const currentHash = JSON.stringify(top8Guests.map(g => `${g.id}_${g.updated_at}_${g.arrival}`));
+            const currentHash = JSON.stringify(top8Guests.map(g => {
+                const info = parseGladiManualInfo(g);
+                return `${g.id}_${info ? info.sortScore : '0'}`;
+            }));
             
             if (currentHash !== lastDataHash) {
                 lastDataHash = currentHash;
