@@ -139,7 +139,6 @@
             return '-';
         }
 
-        // FUNGSI INTI: Parsing manual string updated_at (Format asli API: "YYYY-MM-DD HH:mm:ss")
         function parseKedatanganInfo(guest) {
             let rawStr = getFieldValue(guest, 'updated_at');
 
@@ -161,11 +160,9 @@
             let mStr = String(timeTokens[1]).padStart(2, '0');
             let sStr = timeTokens.length > 2 ? String(timeTokens[2]).padStart(2, '0') : '00';
 
-            // Bersihkan format strip pada tanggal untuk digabungkan menjadi skor angka sorting
             let dateClean = String(rawDate).replace(/\D/g, ''); 
             if (dateClean.length !== 8) dateClean = "20260101"; 
             
-            // Output Angka Skoring -> Misal: 20261105152235
             let sortScore = parseInt(`${dateClean}${hStr}${mStr}${sStr}`, 10);
 
             return {
@@ -179,7 +176,6 @@
             return info ? info.timeDisplay : '--:--';
         }
 
-        // KUNCI UTAMA: Cek status "souvenir" = true
         function isKedatanganScanned(g) {
             return g.souvenir === true || g.souvenir === 1 || g.souvenir === "1" || String(g.souvenir).toLowerCase() === 'true';
         }
@@ -229,7 +225,7 @@
 
             const guests = data.guests;
 
-            // FILTER: Hanya peserta dengan `souvenir` yang dipindai
+            // FILTER
             let filteredGuests = guests.filter(g => {
                 if (!isKedatanganScanned(g)) return false;
 
@@ -248,8 +244,21 @@
 
                 return true;
             });
+            
+            // Hitung Jumlah Sesi 1 dan Sesi 2 yang Hadir
+            let hadirSesi1 = 0;
+            let hadirSesi2 = 0;
+            
+            filteredGuests.forEach(g => {
+                let sesiVal = String(getFieldValue(g, 'Sesi')).toLowerCase().trim();
+                if (sesiVal === '1' || sesiVal === 'sesi 1') {
+                    hadirSesi1++;
+                } else if (sesiVal === '2' || sesiVal === 'sesi 2') {
+                    hadirSesi2++;
+                }
+            });
 
-            // SORTING: Membandingkan skor angka mutlak dari string `updated_at` (terbaru di atas)
+            // SORTING
             filteredGuests.sort((a, b) => {
                 const infoA = parseKedatanganInfo(a);
                 const infoB = parseKedatanganInfo(b);
@@ -260,9 +269,10 @@
                 return scoreB - scoreA;
             });
 
-            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Kedatangan Hadir: ${filteredGuests.length} / ${guests.length}`;
+            // TAMPILKAN STATUS DENGAN BREAKDOWN SESI
+            statusEl.innerText = `Status: LIVE (${new Date().toLocaleTimeString('id-ID')}) | Kedatangan Hadir: ${filteredGuests.length} / ${guests.length} (Sesi 1: ${hadirSesi1} | Sesi 2: ${hadirSesi2})`;
 
-            // MEMANTAU HASIL: Menyimpan Hash State 8 Item Teratas
+            // MEMANTAU HASIL
             const top8Guests = filteredGuests.slice(0, 8);
             const currentHash = JSON.stringify(top8Guests.map(g => {
                 const info = parseKedatanganInfo(g);
