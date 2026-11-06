@@ -164,7 +164,7 @@
         </div>
 
         <!-- Tabel Kecil Rekapitulasi Per Jurusan (Collapse Default Hidden) -->
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 shadow-sm">
             <div class="flex items-center justify-between cursor-pointer select-none" @click="showJurusanTable = !showJurusanTable">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-chart-bar text-blue-600 text-sm"></i>
@@ -226,6 +226,144 @@
                             <td class="p-2.5 text-center font-mono text-indigo-700">{{ guests.filter(g => g.rsvp === true).length }}</td>
                             <td class="p-2.5 text-center font-mono text-emerald-700">{{ guests.filter(g => g.arrival === true).length }}</td>
                             <td class="p-2.5 text-center font-mono text-amber-600">{{ guests.filter(g => g.souvenir === true).length }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tabel Rekapitulasi Sesi 1 (Collapse Default Hidden) -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 shadow-sm">
+            <div class="flex items-center justify-between cursor-pointer select-none" @click="showSesi1Table = !showSesi1Table">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-clock text-indigo-600 text-sm"></i>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Rekapitulasi Data Sesi 1</h3>
+                    <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-mono font-bold">
+                        {{ sesi1Summary.reduce((acc, curr) => acc + curr.totalTamu, 0) }} Tamu
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-400 italic hidden sm:inline">Klik untuk buka/tutup rekapitulasi Sesi 1</span>
+                    <i :class="['fas text-slate-400 transition-transform duration-200', showSesi1Table ? 'fa-chevron-up' : 'fa-chevron-down']"></i>
+                </div>
+            </div>
+
+            <div v-if="showSesi1Table" class="mt-3 pt-3 border-t border-slate-200 overflow-x-auto">
+                <div class="flex justify-between items-center mb-2 text-[11px] text-slate-500">
+                    <span>Klik pada baris jurusan untuk memfilter tabel di bawah.</span>
+                    <button v-if="selectedJurusanFilter" @click="clearJurusanFilter" class="text-red-600 hover:underline font-bold">
+                        <i class="fas fa-sync-alt mr-1"></i> Tampilkan Semua Jurusan
+                    </button>
+                </div>
+                <table class="w-full text-left border-collapse bg-white rounded-lg overflow-hidden border border-slate-200">
+                    <thead>
+                        <tr class="bg-indigo-50/50 text-slate-600 text-[11px] border-b border-slate-200">
+                            <th class="p-2.5">JURUSAN (SESI 1)</th>
+                            <th class="p-2.5 text-center">TOTAL TAMU</th>
+                            <th class="p-2.5 text-center text-indigo-700">TOTAL KONFIRMASI RSVP</th>
+                            <th class="p-2.5 text-center text-emerald-700">TOTAL GLADI</th>
+                            <th class="p-2.5 text-center text-amber-600">TOTAL KEDATANGAN</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        <tr 
+                            v-for="j in sesi1Summary" 
+                            :key="j.name" 
+                            @click="filterByJurusan(j.name)" 
+                            :class="[
+                                'cursor-pointer transition-colors',
+                                selectedJurusanFilter.toLowerCase() === j.name.toLowerCase() ? 'bg-blue-50/80 font-bold' : 'hover:bg-slate-50'
+                            ]"
+                        >
+                            <td class="p-2.5 font-bold text-blue-600 hover:underline flex items-center gap-1.5">
+                                <i class="fas fa-graduation-cap text-[10px]"></i> {{ j.name }}
+                                <span v-if="selectedJurusanFilter.toLowerCase() === j.name.toLowerCase()" class="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded ml-1">Aktif</span>
+                            </td>
+                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.totalTamu }}</td>
+                            <td class="p-2.5 text-center font-mono text-indigo-700 font-bold bg-indigo-50/30">{{ j.totalRsvp }}</td>
+                            <td class="p-2.5 text-center font-mono text-emerald-700 font-bold bg-emerald-50/30">{{ j.totalGladi }}</td>
+                            <td class="p-2.5 text-center font-mono text-amber-600 font-bold bg-amber-50/30">{{ j.totalKedatangan }}</td>
+                        </tr>
+                        <tr v-if="sesi1Summary.length === 0">
+                            <td colspan="5" class="p-4 text-center text-slate-400 italic">Belum ada data Sesi 1</td>
+                        </tr>
+                    </tbody>
+                    <tfoot v-if="sesi1Summary.length > 0" class="bg-indigo-50/50 font-bold text-xs border-t border-slate-200">
+                        <tr>
+                            <td class="p-2.5 text-slate-700">TOTAL KESELURUHAN SESI 1</td>
+                            <td class="p-2.5 text-center font-mono text-slate-900">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalTamu, 0) }}</td>
+                            <td class="p-2.5 text-center font-mono text-indigo-700">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalRsvp, 0) }}</td>
+                            <td class="p-2.5 text-center font-mono text-emerald-700">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalGladi, 0) }}</td>
+                            <td class="p-2.5 text-center font-mono text-amber-600">{{ sesi1Summary.reduce((acc, curr) => acc + curr.totalKedatangan, 0) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tabel Rekapitulasi Sesi 2 (Collapse Default Hidden) -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 shadow-sm">
+            <div class="flex items-center justify-between cursor-pointer select-none" @click="showSesi2Table = !showSesi2Table">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-clock text-amber-600 text-sm"></i>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Rekapitulasi Data Sesi 2</h3>
+                    <span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-mono font-bold">
+                        {{ sesi2Summary.reduce((acc, curr) => acc + curr.totalTamu, 0) }} Tamu
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-400 italic hidden sm:inline">Klik untuk buka/tutup rekapitulasi Sesi 2</span>
+                    <i :class="['fas text-slate-400 transition-transform duration-200', showSesi2Table ? 'fa-chevron-up' : 'fa-chevron-down']"></i>
+                </div>
+            </div>
+
+            <div v-if="showSesi2Table" class="mt-3 pt-3 border-t border-slate-200 overflow-x-auto">
+                <div class="flex justify-between items-center mb-2 text-[11px] text-slate-500">
+                    <span>Klik pada baris jurusan untuk memfilter tabel di bawah.</span>
+                    <button v-if="selectedJurusanFilter" @click="clearJurusanFilter" class="text-red-600 hover:underline font-bold">
+                        <i class="fas fa-sync-alt mr-1"></i> Tampilkan Semua Jurusan
+                    </button>
+                </div>
+                <table class="w-full text-left border-collapse bg-white rounded-lg overflow-hidden border border-slate-200">
+                    <thead>
+                        <tr class="bg-amber-50/50 text-slate-600 text-[11px] border-b border-slate-200">
+                            <th class="p-2.5">JURUSAN (SESI 2)</th>
+                            <th class="p-2.5 text-center">TOTAL TAMU</th>
+                            <th class="p-2.5 text-center text-indigo-700">TOTAL KONFIRMASI RSVP</th>
+                            <th class="p-2.5 text-center text-emerald-700">TOTAL GLADI</th>
+                            <th class="p-2.5 text-center text-amber-600">TOTAL KEDATANGAN</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        <tr 
+                            v-for="j in sesi2Summary" 
+                            :key="j.name" 
+                            @click="filterByJurusan(j.name)" 
+                            :class="[
+                                'cursor-pointer transition-colors',
+                                selectedJurusanFilter.toLowerCase() === j.name.toLowerCase() ? 'bg-blue-50/80 font-bold' : 'hover:bg-slate-50'
+                            ]"
+                        >
+                            <td class="p-2.5 font-bold text-blue-600 hover:underline flex items-center gap-1.5">
+                                <i class="fas fa-graduation-cap text-[10px]"></i> {{ j.name }}
+                                <span v-if="selectedJurusanFilter.toLowerCase() === j.name.toLowerCase()" class="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded ml-1">Aktif</span>
+                            </td>
+                            <td class="p-2.5 text-center font-mono font-bold text-slate-800">{{ j.totalTamu }}</td>
+                            <td class="p-2.5 text-center font-mono text-indigo-700 font-bold bg-indigo-50/30">{{ j.totalRsvp }}</td>
+                            <td class="p-2.5 text-center font-mono text-emerald-700 font-bold bg-emerald-50/30">{{ j.totalGladi }}</td>
+                            <td class="p-2.5 text-center font-mono text-amber-600 font-bold bg-amber-50/30">{{ j.totalKedatangan }}</td>
+                        </tr>
+                        <tr v-if="sesi2Summary.length === 0">
+                            <td colspan="5" class="p-4 text-center text-slate-400 italic">Belum ada data Sesi 2</td>
+                        </tr>
+                    </tbody>
+                    <tfoot v-if="sesi2Summary.length > 0" class="bg-amber-50/50 font-bold text-xs border-t border-slate-200">
+                        <tr>
+                            <td class="p-2.5 text-slate-700">TOTAL KESELURUHAN SESI 2</td>
+                            <td class="p-2.5 text-center font-mono text-slate-900">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalTamu, 0) }}</td>
+                            <td class="p-2.5 text-center font-mono text-indigo-700">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalRsvp, 0) }}</td>
+                            <td class="p-2.5 text-center font-mono text-emerald-700">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalGladi, 0) }}</td>
+                            <td class="p-2.5 text-center font-mono text-amber-600">{{ sesi2Summary.reduce((acc, curr) => acc + curr.totalKedatangan, 0) }}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -410,9 +548,11 @@
                     availableFields: [],
                     visibleFields: ['Nama', 'Nim', 'Prodi', 'Jurusan', 'Sesi', 'Nokur'],
                     
-                    // Kedua bagian di-set collapse (tersembunyi) saat awal muat halaman
+                    // Bagian collapse (tersembunyi) saat awal muat halaman
                     showFieldConfig: false, 
                     showJurusanTable: false, 
+                    showSesi1Table: false,
+                    showSesi2Table: false,
                     
                     selectedJurusanFilter: '', 
                     
@@ -440,8 +580,25 @@
                     }; 
                 },
                 jurusanSummary() {
+                    return this.generateSummaryByFilter(() => true);
+                },
+                sesi1Summary() {
+                    return this.generateSummaryByFilter(g => {
+                        const s = String(this.getFieldValue(g, 'Sesi')).trim();
+                        return s === '1' || s.toLowerCase() === 'sesi 1';
+                    });
+                },
+                sesi2Summary() {
+                    return this.generateSummaryByFilter(g => {
+                        const s = String(this.getFieldValue(g, 'Sesi')).trim();
+                        return s === '2' || s.toLowerCase() === 'sesi 2';
+                    });
+                }
+            },
+            methods: {
+                generateSummaryByFilter(filterCondition) {
                     let map = {};
-                    this.guests.forEach(g => {
+                    this.guests.filter(filterCondition).forEach(g => {
                         let jName = this.getFieldValue(g, 'Jurusan');
                         if (!jName || jName === '-') jName = 'Lainnya';
                         
@@ -461,9 +618,8 @@
                         if (g.souvenir === true) map[jName].totalKedatangan++;
                     });
                     return Object.values(map).sort((a, b) => b.totalTamu - a.totalTamu);
-                }
-            },
-            methods: {
+                },
+
                 getFieldValue(guest, fieldKey) {
                     if (guest[fieldKey] !== undefined && guest[fieldKey] !== null) {
                         return guest[fieldKey];
